@@ -21,6 +21,8 @@ export class XArticlePreviewView extends ItemView {
 	private refreshButtonEl!: HTMLButtonElement;
 	private refreshToken = 0;
 	private refreshTimer: number | null = null;
+	private sourceScrollEl: HTMLElement | null = null;
+	private sourceScrollHandler: (() => void) | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: XArticleInObsidianPlugin) {
 		super(leaf);
@@ -65,7 +67,12 @@ export class XArticlePreviewView extends ItemView {
 		this.articleEl = cardEl.createDiv({ cls: "x-article-body markdown-rendered" });
 
 		this.registerEvent(this.app.workspace.on("file-open", () => this.queueRefresh()));
-		this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.queueRefresh()));
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", () => {
+				this.bindScrollSync();
+				this.queueRefresh();
+			}),
+		);
 		this.registerEvent(this.app.workspace.on("editor-change", () => this.queueRefresh()));
 		this.registerEvent(
 			this.app.vault.on("modify", (file) => {
@@ -85,6 +92,7 @@ export class XArticlePreviewView extends ItemView {
 			}),
 		);
 
+		this.bindScrollSync();
 		await this.refresh();
 	}
 
@@ -93,6 +101,7 @@ export class XArticlePreviewView extends ItemView {
 			window.clearTimeout(this.refreshTimer);
 			this.refreshTimer = null;
 		}
+		this.unbindScrollSync();
 		this.contentEl.empty();
 	}
 
@@ -148,6 +157,7 @@ export class XArticlePreviewView extends ItemView {
 			enhanceArticlePreview(this.articleEl);
 			this.statusEl.setText(context.file.basename);
 			this.metaEl.setText(`Previewing ${context.file.path}`);
+			this.syncToSourceScroll();
 		} catch (error) {
 			console.error("Failed to render X article preview", error);
 			this.renderEmptyState("The preview could not be rendered.");
@@ -188,5 +198,61 @@ export class XArticlePreviewView extends ItemView {
 		this.articleEl.empty();
 		this.articleEl.addClass("is-empty");
 		this.articleEl.createDiv({ cls: "x-article-empty" }).setText(message);
+	}
+
+	private bindScrollSync(): void {
+		const nextScrollEl = this.getSourceScrollElement();
+		if (nextScrollEl === this.sourceScrollEl) {
+			return;
+		}
+
+		this.unbindScrollSync();
+		if (!nextScrollEl) {
+			return;
+		}
+
+		const handler = (): void => {
+			this.syncToSourceScroll();
+		};
+
+		nextScrollEl.addEventListener("scroll", handler, { passive: true });
+		this.sourceScrollEl = nextScrollEl;
+		this.sourceScrollHandler = handler;
+		this.syncToSourceScroll();
+	}
+
+	private unbindScrollSync(): void {
+		if (this.sourceScrollEl && this.sourceScrollHandler) {
+			this.sourceScrollEl.removeEventListener("scroll", this.sourceScrollHandler);
+		}
+		this.sourceScrollEl = null;
+		this.sourceScrollHandler = null;
+	}
+
+	private getSourceScrollElement(): HTMLElement | null {
+		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!activeView) {
+			return null;
+		}
+
+		return (
+			activeView.containerEl.querySelector(".cm-scroller") ??
+			activeView.containerEl.querySelector(".markdown-preview-view")
+		);
+	}
+
+	private syncToSourceScroll(): void {
+		if (!this.sourceScrollEl) {
+			return;
+		}
+
+		const sourceScrollable = this.sourceScrollEl.scrollHeight - this.sourceScrollEl.clientHeight;
+		const previewScrollable = this.contentEl.scrollHeight - this.contentEl.clientHeight;
+		if (sourceScrollable <= 0 || previewScrollable <= 0) {
+			return;
+		}
+
+		const ratio = this.sourceScrollEl.scrollTop / sourceScrollable;
+		this.contentEl.scrollTop = previewScrollable * ratio;
 	}
 }

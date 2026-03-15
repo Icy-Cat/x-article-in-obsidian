@@ -26,7 +26,7 @@ function wrapStandaloneNode(documentRef: Document, node: HTMLElement): HTMLDivEl
 }
 
 function mapParagraph(documentRef: Document, paragraph: HTMLParagraphElement): HTMLDivElement {
-	const shell = createBlockShell(documentRef, "longform-unstyled");
+	const shell = createBlockShell(documentRef, "longform-unstyled x-article-paragraph");
 	appendNodeChildren(shell.firstElementChild as HTMLElement, paragraph);
 	return shell;
 }
@@ -51,6 +51,13 @@ function mapBlockquote(documentRef: Document, blockquote: HTMLElement): HTMLDivE
 		target.appendChild(child);
 	}
 	return shell;
+}
+
+function mapSeparator(documentRef: Document): HTMLDivElement {
+	const separator = documentRef.createElement("div");
+	separator.className = "x-article-separator";
+	separator.setAttribute("role", "separator");
+	return separator;
 }
 
 function mapList(documentRef: Document, listEl: HTMLUListElement | HTMLOListElement): HTMLElement {
@@ -120,6 +127,9 @@ export function remapArticleDom(container: HTMLElement): void {
 			case "pre":
 				child.classList.add("x-article-code-block");
 				mappedNodes.push(child);
+				break;
+			case "hr":
+				mappedNodes.push(mapSeparator(documentRef));
 				break;
 			default:
 				mappedNodes.push(wrapStandaloneNode(documentRef, child));
