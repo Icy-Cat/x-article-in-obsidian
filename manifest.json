@@ -1,11 +1,9 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "x-article-in-obsidian",
+	"name": "X Article Preview",
 	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"minAppVersion": "1.6.0",
+	"description": "Preview the active Markdown note with an X Article-inspired reading layout.",
+	"author": "OpenAI",
 	"isDesktopOnly": false
 }
