@@ -8,8 +8,24 @@ export function enhanceArticlePreview(container: HTMLElement): void {
 	enhanceExternalLinks(container);
 }
 
+function applyInlineStyles(element: HTMLElement, styles: Record<string, string>): void {
+	Object.entries(styles).forEach(([property, value]) => {
+		element.style.setProperty(property, value);
+	});
+}
+
+function applySvgInlineStyles(element: SVGElement, styles: Record<string, string>): void {
+	Object.entries(styles).forEach(([property, value]) => {
+		element.style.setProperty(property, value);
+	});
+}
+
 function enhanceCodeBlocks(container: HTMLElement): void {
 	container.querySelectorAll("pre > code").forEach((codeEl) => {
+		if (!(codeEl instanceof HTMLElement)) {
+			return;
+		}
+
 		const preEl = codeEl.parentElement;
 		if (!(preEl instanceof HTMLElement)) {
 			return;
@@ -28,42 +44,193 @@ function enhanceCodeBlocks(container: HTMLElement): void {
 
 		const frameEl = document.createElement("div");
 		frameEl.className = "x-article-code-frame";
+		applyInlineStyles(frameEl, {
+			display: "block",
+			"margin-top": "0",
+			"margin-bottom": "28px",
+		});
 
 		const toolbarEl = document.createElement("div");
 		toolbarEl.className = "x-article-code-toolbar";
+		applyInlineStyles(toolbarEl, {
+			display: "grid",
+			"grid-template-columns": "1fr 1fr",
+			"align-items": "center",
+			background: "rgb(229,234,236)",
+			"border-radius": "8px 8px 0 0",
+			"padding-top": "2px",
+			"padding-right": "8px",
+			"padding-bottom": "2px",
+			"padding-left": "12px",
+			"box-sizing": "border-box",
+			width: "100%",
+		});
 		frameEl.appendChild(toolbarEl);
 
-		const languageEl = document.createElement("span");
+		const languageEl = document.createElement("div");
 		languageEl.className = "x-article-code-language";
-		languageEl.textContent = language || "text";
+		applyInlineStyles(languageEl, {
+			direction: "ltr",
+			"background-color": "rgba(0,0,0,0)",
+			border: "0px solid black",
+			"box-sizing": "border-box",
+			display: "inline",
+			font: '14px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif',
+			margin: "0px",
+			padding: "0px",
+			position: "relative",
+			"text-decoration": "none",
+			"white-space": "pre-wrap",
+			color: "rgb(15,20,25)",
+			"font-size": "13px",
+			"font-family": "monospace, monospace",
+			"font-weight": "400",
+			"line-height": "20px",
+		});
+		const languageTextEl = document.createElement("span");
+		languageTextEl.textContent = language || "text";
+		applyInlineStyles(languageTextEl, {
+			"text-transform": "lowercase",
+		});
+		languageEl.appendChild(languageTextEl);
 		toolbarEl.appendChild(languageEl);
+
+		const actionsEl = document.createElement("div");
+		applyInlineStyles(actionsEl, {
+			display: "flex",
+			"align-items": "center",
+			"justify-content": "flex-end",
+			width: "100%",
+		});
+		toolbarEl.appendChild(actionsEl);
 
 		const copyButtonEl = document.createElement("button");
 		copyButtonEl.type = "button";
 		copyButtonEl.className = "x-article-code-copy";
-		copyButtonEl.textContent = "Copy";
 		copyButtonEl.setAttribute("aria-label", "Copy code block");
+		copyButtonEl.setAttribute("title", "Copy code block");
+		applyInlineStyles(copyButtonEl, {
+			display: "block",
+			padding: "0",
+			border: "0",
+			margin: "0",
+			"background-color": "rgba(0,0,0,0)",
+			"border-color": "rgba(0,0,0,0)",
+			outline: "none",
+			"box-shadow": "none",
+			appearance: "none",
+			"-webkit-appearance": "none",
+			cursor: "pointer",
+		});
+
+		const copyInnerEl = document.createElement("div");
+		applyInlineStyles(copyInnerEl, {
+			direction: "ltr",
+			color: "rgb(15,20,25)",
+			display: "flex",
+			"align-items": "center",
+			"justify-content": "center",
+			width: "24px",
+			height: "24px",
+			"font-weight": "700",
+		});
+		copyInnerEl.appendChild(createCopyIcon(document));
+		copyButtonEl.appendChild(copyInnerEl);
+
+		const setCopyState = (state: "idle" | "success" | "error"): void => {
+			copyButtonEl.dataset.state = state;
+			copyInnerEl.style.setProperty(
+				"color",
+				state === "success"
+					? "rgb(0,186,124)"
+					: state === "error"
+						? "rgb(244,33,46)"
+						: "rgb(15,20,25)",
+			);
+		};
+
+		setCopyState("idle");
 		copyButtonEl.addEventListener("click", () => {
 			void (async () => {
 				try {
 					await navigator.clipboard.writeText(codeEl.textContent ?? "");
-					copyButtonEl.textContent = "Copied";
+					setCopyState("success");
 					window.setTimeout(() => {
-						copyButtonEl.textContent = "Copy";
+						setCopyState("idle");
 					}, 1200);
 				} catch {
-					copyButtonEl.textContent = "Failed";
+					setCopyState("error");
 					window.setTimeout(() => {
-						copyButtonEl.textContent = "Copy";
+						setCopyState("idle");
 					}, 1200);
 				}
 			})();
 		});
-		toolbarEl.appendChild(copyButtonEl);
+		actionsEl.appendChild(copyButtonEl);
+
+		applyInlineStyles(preEl, {
+			background: "rgb(247,249,249)",
+			color: "rgb(56,58,66)",
+			"font-family": "monospace",
+			direction: "ltr",
+			"text-align": "left",
+			"white-space": "pre",
+			"word-spacing": "normal",
+			"word-break": "normal",
+			"line-height": "1.3",
+			"tab-size": "2",
+			hyphens: "none",
+			padding: "12px",
+			margin: "0px 0px 0.5em",
+			overflow: "auto",
+			"border-radius": "0.3em 0.3em 8px 8px",
+			"font-size": "13px",
+			display: "block",
+			width: "100%",
+			"box-sizing": "border-box",
+		});
+
+		applyInlineStyles(codeEl, {
+			background: "rgb(250,250,250)",
+			color: "rgb(56,58,66)",
+			"font-family": '"Fira Code","Fira Mono",Menlo,Consolas,"DejaVu Sans Mono",monospace',
+			direction: "ltr",
+			"text-align": "left",
+			"white-space": "pre",
+			"word-spacing": "normal",
+			"word-break": "normal",
+			"line-height": "1.5",
+			"tab-size": "2",
+			hyphens: "none",
+		});
 
 		preEl.replaceWith(frameEl);
 		frameEl.appendChild(preEl);
 	});
+}
+
+function createCopyIcon(documentRef: Document): SVGSVGElement {
+	const svgNamespace = "http://www.w3.org/2000/svg";
+	const svgEl = documentRef.createElementNS(svgNamespace, "svg");
+	svgEl.setAttribute("viewBox", "0 0 24 24");
+	svgEl.setAttribute("aria-hidden", "true");
+	applySvgInlineStyles(svgEl, {
+		width: "18px",
+		height: "18px",
+		color: "currentcolor",
+	});
+
+	const groupEl = documentRef.createElementNS(svgNamespace, "g");
+	svgEl.appendChild(groupEl);
+
+	const pathEl = documentRef.createElementNS(svgNamespace, "path");
+	pathEl.setAttribute(
+		"d",
+		"M19.5 2C20.88 2 22 3.12 22 4.5v11c0 1.21-.86 2.22-2 2.45V4.5c0-.28-.22-.5-.5-.5H6.05c.23-1.14 1.24-2 2.45-2h11zm-4 4C16.88 6 18 7.12 18 8.5v11c0 1.38-1.12 2.5-2.5 2.5h-11C3.12 22 2 20.88 2 19.5v-11C2 7.12 3.12 6 4.5 6h11zM4 19.5c0 .28.22.5.5.5h11c.28 0 .5-.22.5-.5v-11c0-.28-.22-.5-.5-.5h-11c-.28 0-.5.22-.5.5v11z",
+	);
+	groupEl.appendChild(pathEl);
+
+	return svgEl;
 }
 
 function enhanceStandaloneImages(container: HTMLElement): void {

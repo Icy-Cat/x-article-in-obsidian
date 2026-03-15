@@ -289,6 +289,12 @@
 	border-radius: 16px;
 }
 
+.x-article-template pre > button,
+.x-article-template pre .copy-code-button,
+.x-article-template .markdown-rendered pre button {
+	display: none !important;
+}
+
 .x-article-template .x-article-figure {
 	margin-top: 32px;
 }
@@ -303,92 +309,6 @@
 
 .theme-dark .x-article-template .x-article-figcaption {
 	color: rgb(113, 118, 123);
-}
-
-.x-article-template code {
-	font-family: "Cascadia Code", "JetBrains Mono", monospace;
-}
-
-.x-article-template .x-article-code-block {
-	margin-top: 0;
-	margin-bottom: 0;
-}
-
-.x-article-template .x-article-code-frame {
-	overflow: hidden;
-	border-radius: 8px;
-}
-
-.x-article-template .x-article-code-toolbar {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 12px;
-	padding: 10px 12px 0;
-	background: rgb(247, 249, 249);
-	color: rgb(15, 20, 25);
-}
-
-.x-article-template .x-article-code-language {
-	font:
-		500 14px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-		sans-serif;
-	text-transform: lowercase;
-}
-
-.x-article-template .x-article-code-copy {
-	padding: 0;
-	border: 0;
-	background: transparent;
-	color: rgb(15, 20, 25);
-	font:
-		500 13px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-		sans-serif;
-	cursor: pointer;
-}
-
-.x-article-template .x-article-code-copy:hover {
-	text-decoration: underline;
-}
-
-.x-article-template pre {
-	display: block;
-	width: 100%;
-	box-sizing: border-box;
-	margin: 0 0 0.5em;
-	padding: 12px;
-	border-radius: 0 0 8px 8px;
-	background: rgb(247, 249, 249);
-	color: rgb(56, 58, 66);
-	font-size: 13px;
-	line-height: 1.3;
-	overflow: auto;
-}
-
-.theme-dark .x-article-template .x-article-code-toolbar,
-.theme-dark .x-article-template pre {
-	background: rgb(32, 35, 39);
-}
-
-.theme-dark .x-article-template .x-article-code-language,
-.theme-dark .x-article-template .x-article-code-copy {
-	color: rgb(231, 233, 234);
-}
-
-.theme-dark .x-article-template pre {
-	color: rgb(231, 233, 234);
-}
-
-.x-article-template pre code {
-	background: rgb(250, 250, 250);
-	color: rgb(56, 58, 66);
-	font-family: "Fira Code", "Fira Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
-	line-height: 1.5;
-}
-
-.theme-dark .x-article-template pre code {
-	background: transparent;
-	color: rgb(231, 233, 234);
 }
 
 .x-article-template .x-post-card {
