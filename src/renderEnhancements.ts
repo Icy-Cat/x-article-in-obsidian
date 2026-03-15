@@ -1,5 +1,18 @@
 const X_POST_URL_PATTERN =
 	/^https?:\/\/(?:www\.)?(?:x\.com|twitter\.com)\/([^/]+)\/status\/(\d+)(?:[/?#].*)?$/i;
+const X_WIDGETS_SCRIPT_URL = "https://platform.twitter.com/widgets.js";
+let widgetsLoader: Promise<TwitterWidgets | null> | null = null;
+
+interface TwitterWidgets {
+	widgets?: {
+		createTweet?: (
+			tweetId: string,
+			targetEl: HTMLElement,
+			options?: Record<string, unknown>,
+		) => Promise<HTMLElement>;
+		load?: (targetEl?: HTMLElement) => Promise<void>;
+	};
+}
 
 export function enhanceArticlePreview(container: HTMLElement): void {
 	enhanceCodeBlocks(container);
@@ -260,13 +273,22 @@ function enhanceStandaloneImages(container: HTMLElement): void {
 }
 
 function enhancePostLinks(container: HTMLElement): void {
-	container.querySelectorAll("p > a:only-child").forEach((anchorEl) => {
+	container.querySelectorAll("a").forEach((anchorEl) => {
 		if (!(anchorEl instanceof HTMLAnchorElement)) {
 			return;
 		}
 
-		const parentParagraph = anchorEl.parentElement;
-		if (!(parentParagraph instanceof HTMLParagraphElement)) {
+		const blockContainer = anchorEl.closest(".public-DraftStyleDefault-block");
+		if (!(blockContainer instanceof HTMLElement)) {
+			return;
+		}
+
+		const paragraphShell = blockContainer.parentElement;
+		if (!(paragraphShell instanceof HTMLElement)) {
+			return;
+		}
+
+		if (!isStandalonePostLink(blockContainer, anchorEl)) {
 			return;
 		}
 
@@ -277,6 +299,150 @@ function enhancePostLinks(container: HTMLElement): void {
 
 		const handle = match[1] ?? "unknown";
 		const statusId = match[2] ?? "";
+		const embedHostUrl = `https://twitter.com/${handle}/status/${statusId}`;
+		const embedEl = document.createElement("div");
+		embedEl.className = "x-post-embed";
+		const loadingEl = document.createElement("div");
+		loadingEl.className = "x-post-embed__loading";
+		loadingEl.textContent = "Loading post preview...";
+		embedEl.appendChild(loadingEl);
+		paragraphShell.replaceWith(embedEl);
+
+		void renderOfficialPostEmbed(embedEl, statusId, embedHostUrl).catch((error: unknown) => {
+			console.error("Failed to render official X embed", {
+				url: anchorEl.href,
+				statusId,
+				error: error instanceof Error ? error.message : String(error),
+			});
+			embedEl.empty();
+			embedEl.replaceWith(createFallbackPostCard(anchorEl.href, handle, statusId));
+		});
+	});
+}
+
+function isStandalonePostLink(blockContainer: HTMLElement, anchorEl: HTMLAnchorElement): boolean {
+	const meaningfulNodes = Array.from(blockContainer.childNodes).filter((node) => {
+		if (node === anchorEl) {
+			return true;
+		}
+
+		if (node.nodeType === Node.TEXT_NODE) {
+			return (node.textContent ?? "").trim().length > 0;
+		}
+
+		if (node instanceof HTMLElement) {
+			return node.textContent?.trim().length !== 0;
+		}
+
+		return false;
+	});
+
+	return meaningfulNodes.length === 1 && meaningfulNodes[0] === anchorEl;
+}
+
+async function renderOfficialPostEmbed(
+	targetEl: HTMLElement,
+	statusId: string,
+	embedUrl: string,
+): Promise<void> {
+	targetEl.empty();
+	const twitter = await loadTwitterWidgets();
+	if (twitter?.widgets?.createTweet) {
+		await withEmbedTimeout(
+			twitter.widgets.createTweet(statusId, targetEl, {
+				align: "center",
+				dnt: true,
+				theme: document.body.classList.contains("theme-dark") ? "dark" : "light",
+			}),
+		);
+		if (targetEl.children.length > 0) {
+			return;
+		}
+		throw new Error("createTweet completed without rendering embed content.");
+	}
+
+	const blockquoteEl = document.createElement("blockquote");
+	blockquoteEl.className = "twitter-tweet";
+	const linkEl = document.createElement("a");
+	linkEl.href = embedUrl;
+	blockquoteEl.appendChild(linkEl);
+	targetEl.appendChild(blockquoteEl);
+
+	if (twitter?.widgets?.load) {
+		await withEmbedTimeout(twitter.widgets.load(targetEl));
+		const rendered =
+			targetEl.querySelector("iframe") ??
+			targetEl.querySelector(".twitter-tweet-rendered") ??
+			targetEl.querySelector("[data-tweet-id]");
+		if (rendered) {
+			return;
+		}
+
+		throw new Error("widgets.load completed without rendering embed content.");
+	}
+
+	throw new Error("Twitter widgets.js did not expose embed APIs.");
+}
+
+function withEmbedTimeout<T>(promise: Promise<T>, timeoutMs = 5000): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		const timeoutId = window.setTimeout(() => {
+			reject(new Error(`Embed render timed out after ${timeoutMs}ms.`));
+		}, timeoutMs);
+
+		void promise.then(
+			(value) => {
+				window.clearTimeout(timeoutId);
+				resolve(value);
+			},
+			(error: unknown) => {
+				window.clearTimeout(timeoutId);
+				reject(error instanceof Error ? error : new Error(String(error)));
+			},
+		);
+	});
+}
+
+async function loadTwitterWidgets(): Promise<TwitterWidgets | null> {
+	if (typeof window === "undefined") {
+		return null;
+	}
+
+	const existingTwitter = (window as Window & { twttr?: unknown }).twttr as
+		| TwitterWidgets
+		| undefined;
+	if (existingTwitter?.widgets?.createTweet || existingTwitter?.widgets?.load) {
+		return existingTwitter;
+	}
+
+	if (!widgetsLoader) {
+		widgetsLoader = new Promise<TwitterWidgets | null>((resolve) => {
+			const existingScript = document.querySelector<HTMLScriptElement>(
+				`script[src="${X_WIDGETS_SCRIPT_URL}"]`,
+			);
+			if (existingScript) {
+				existingScript.addEventListener("load", () => {
+					resolve((window as Window & { twttr?: TwitterWidgets }).twttr ?? null);
+				});
+				existingScript.addEventListener("error", () => resolve(null));
+				return;
+			}
+
+			const scriptEl = document.createElement("script");
+			scriptEl.async = true;
+			scriptEl.src = X_WIDGETS_SCRIPT_URL;
+			scriptEl.addEventListener("load", () => {
+				resolve((window as Window & { twttr?: TwitterWidgets }).twttr ?? null);
+			});
+			scriptEl.addEventListener("error", () => resolve(null));
+			document.head.appendChild(scriptEl);
+		});
+	}
+
+	return widgetsLoader;
+}
+
+function createFallbackPostCard(url: string, handle: string, statusId: string): HTMLElement {
 		const cardEl = document.createElement("article");
 		cardEl.className = "x-post-card";
 
@@ -314,7 +480,7 @@ function enhancePostLinks(container: HTMLElement): void {
 		const linkEl = document.createElement("a");
 		linkEl.className = "x-post-card__link";
 		linkEl.textContent = "View post on X";
-		linkEl.href = anchorEl.href;
+		linkEl.href = url;
 		linkEl.target = "_blank";
 		linkEl.rel = "noopener noreferrer";
 		footerEl.appendChild(linkEl);
@@ -324,8 +490,7 @@ function enhancePostLinks(container: HTMLElement): void {
 		idEl.textContent = `Post ID ${statusId}`;
 		footerEl.appendChild(idEl);
 
-		parentParagraph.replaceWith(cardEl);
-	});
+	return cardEl;
 }
 
 function enhanceExternalLinks(container: HTMLElement): void {

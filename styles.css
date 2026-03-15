@@ -299,12 +299,28 @@
 }
 
 .x-article-template .x-article-code-frame,
+.x-article-template .x-post-embed,
 .x-article-template .x-post-card,
 .x-article-template .x-article-figure,
 .x-article-template table,
 .x-article-template .x-article-separator {
 	margin-top: 0;
 	margin-bottom: 28px;
+}
+
+.x-article-template .x-post-embed {
+	display: flex;
+	justify-content: center;
+}
+
+.x-article-template .x-post-embed__loading {
+	padding: 14px 16px;
+	border: 1px dashed rgba(15, 20, 25, 0.12);
+	border-radius: 16px;
+	color: rgb(83, 100, 113);
+	font:
+		500 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+		sans-serif;
 }
 
 .x-article-template .x-article-separator {
