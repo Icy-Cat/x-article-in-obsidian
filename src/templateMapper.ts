@@ -41,7 +41,15 @@ function mapHeading(documentRef: Document, heading: HTMLHeadingElement): HTMLDiv
 
 function mapBlockquote(documentRef: Document, blockquote: HTMLElement): HTMLDivElement {
 	const shell = createBlockShell(documentRef, "longform-blockquote");
-	appendNodeChildren(shell.firstElementChild as HTMLElement, blockquote);
+	const target = shell.firstElementChild as HTMLElement;
+	while (blockquote.firstChild) {
+		const child = blockquote.firstChild;
+		if (child.nodeType === Node.TEXT_NODE && (child.textContent ?? "").trim().length === 0) {
+			blockquote.removeChild(child);
+			continue;
+		}
+		target.appendChild(child);
+	}
 	return shell;
 }
 

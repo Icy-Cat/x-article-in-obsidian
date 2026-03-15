@@ -204,6 +204,18 @@
 	padding-left: calc(24px + 3px);
 }
 
+.x-article-template .longform-blockquote .public-DraftStyleDefault-block,
+.x-article-template .longform-blockquote p,
+.x-article-template .longform-blockquote span {
+	font-size: inherit;
+	line-height: inherit;
+}
+
+.x-article-template .longform-blockquote p,
+.x-article-template .longform-blockquote blockquote {
+	margin: 0;
+}
+
 .x-article-template .longform-blockquote::before {
 	position: absolute;
 	top: 0;
