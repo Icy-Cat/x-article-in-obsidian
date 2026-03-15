@@ -9,7 +9,7 @@ import {
 import { VIEW_TYPE_X_ARTICLE_PREVIEW } from "../constants";
 import { buildPreviewMarkdown } from "../markdown";
 import type XArticleInObsidianPlugin from "../main";
-import { enhanceArticlePreview } from "../renderEnhancements";
+import { collectPostEmbedCache, enhanceArticlePreview } from "../renderEnhancements";
 import { remapArticleDom } from "../templateMapper";
 
 export class XArticlePreviewView extends ItemView {
@@ -133,6 +133,7 @@ export class XArticlePreviewView extends ItemView {
 		}
 
 		try {
+			const postEmbedCache = collectPostEmbedCache(this.articleEl);
 			this.articleEl.empty();
 			this.articleEl.removeClass("is-empty");
 			const previewMarkdown = buildPreviewMarkdown(
@@ -154,7 +155,7 @@ export class XArticlePreviewView extends ItemView {
 			}
 
 			remapArticleDom(this.articleEl);
-			enhanceArticlePreview(this.articleEl);
+			enhanceArticlePreview(this.articleEl, postEmbedCache);
 			this.statusEl.setText(context.file.basename);
 			this.metaEl.setText(`Previewing ${context.file.path}`);
 			this.syncToSourceScroll();

@@ -14,10 +14,30 @@ interface TwitterWidgets {
 	};
 }
 
-export function enhanceArticlePreview(container: HTMLElement): void {
+export type PostEmbedCache = Map<string, HTMLElement[]>;
+
+export function collectPostEmbedCache(container: HTMLElement): PostEmbedCache {
+	const cache: PostEmbedCache = new Map();
+	container
+		.querySelectorAll<HTMLElement>(".x-post-embed[data-post-url], .x-post-card[data-post-url]")
+		.forEach((node) => {
+			const url = node.dataset.postUrl;
+			if (!url) {
+				return;
+			}
+
+			const entries = cache.get(url) ?? [];
+			entries.push(node);
+			cache.set(url, entries);
+		});
+
+	return cache;
+}
+
+export function enhanceArticlePreview(container: HTMLElement, postEmbedCache?: PostEmbedCache): void {
 	enhanceCodeBlocks(container);
 	enhanceStandaloneImages(container);
-	enhancePostLinks(container);
+	enhancePostLinks(container, postEmbedCache);
 	enhanceExternalLinks(container);
 }
 
@@ -272,7 +292,7 @@ function enhanceStandaloneImages(container: HTMLElement): void {
 	});
 }
 
-function enhancePostLinks(container: HTMLElement): void {
+function enhancePostLinks(container: HTMLElement, postEmbedCache?: PostEmbedCache): void {
 	container.querySelectorAll("a").forEach((anchorEl) => {
 		if (!(anchorEl instanceof HTMLAnchorElement)) {
 			return;
@@ -300,8 +320,15 @@ function enhancePostLinks(container: HTMLElement): void {
 		const handle = match[1] ?? "unknown";
 		const statusId = match[2] ?? "";
 		const embedHostUrl = `https://twitter.com/${handle}/status/${statusId}`;
+		const cachedEmbed = takeCachedPostEmbed(postEmbedCache, anchorEl.href);
+		if (cachedEmbed) {
+			paragraphShell.replaceWith(cachedEmbed);
+			return;
+		}
+
 		const embedEl = document.createElement("div");
 		embedEl.className = "x-post-embed";
+		embedEl.dataset.postUrl = anchorEl.href;
 		const loadingEl = document.createElement("div");
 		loadingEl.className = "x-post-embed__loading";
 		loadingEl.textContent = "Loading post preview...";
@@ -318,6 +345,27 @@ function enhancePostLinks(container: HTMLElement): void {
 			embedEl.replaceWith(createFallbackPostCard(anchorEl.href, handle, statusId));
 		});
 	});
+}
+
+function takeCachedPostEmbed(
+	postEmbedCache: PostEmbedCache | undefined,
+	url: string,
+): HTMLElement | null {
+	if (!postEmbedCache) {
+		return null;
+	}
+
+	const entries = postEmbedCache.get(url);
+	if (!entries || entries.length === 0) {
+		return null;
+	}
+
+	const cachedNode = entries.shift() ?? null;
+	if (entries.length === 0) {
+		postEmbedCache.delete(url);
+	}
+
+	return cachedNode;
 }
 
 function isStandalonePostLink(blockContainer: HTMLElement, anchorEl: HTMLAnchorElement): boolean {
@@ -443,52 +491,53 @@ async function loadTwitterWidgets(): Promise<TwitterWidgets | null> {
 }
 
 function createFallbackPostCard(url: string, handle: string, statusId: string): HTMLElement {
-		const cardEl = document.createElement("article");
-		cardEl.className = "x-post-card";
+	const cardEl = document.createElement("article");
+	cardEl.className = "x-post-card";
+	cardEl.dataset.postUrl = url;
 
-		const headerEl = document.createElement("div");
-		headerEl.className = "x-post-card__header";
-		cardEl.appendChild(headerEl);
+	const headerEl = document.createElement("div");
+	headerEl.className = "x-post-card__header";
+	cardEl.appendChild(headerEl);
 
-		const avatarEl = document.createElement("div");
-		avatarEl.className = "x-post-card__avatar";
-		headerEl.appendChild(avatarEl);
+	const avatarEl = document.createElement("div");
+	avatarEl.className = "x-post-card__avatar";
+	headerEl.appendChild(avatarEl);
 
-		const metaEl = document.createElement("div");
-		metaEl.className = "x-post-card__meta";
-		headerEl.appendChild(metaEl);
+	const metaEl = document.createElement("div");
+	metaEl.className = "x-post-card__meta";
+	headerEl.appendChild(metaEl);
 
-		const nameEl = document.createElement("div");
-		nameEl.className = "x-post-card__name";
-		nameEl.textContent = handle;
-		metaEl.appendChild(nameEl);
+	const nameEl = document.createElement("div");
+	nameEl.className = "x-post-card__name";
+	nameEl.textContent = handle;
+	metaEl.appendChild(nameEl);
 
-		const handleEl = document.createElement("div");
-		handleEl.className = "x-post-card__handle";
-		handleEl.textContent = `@${handle}`;
-		metaEl.appendChild(handleEl);
+	const handleEl = document.createElement("div");
+	handleEl.className = "x-post-card__handle";
+	handleEl.textContent = `@${handle}`;
+	metaEl.appendChild(handleEl);
 
-		const bodyEl = document.createElement("div");
-		bodyEl.className = "x-post-card__body";
-		bodyEl.textContent = "Open the original post on X to view the live embed content.";
-		cardEl.appendChild(bodyEl);
+	const bodyEl = document.createElement("div");
+	bodyEl.className = "x-post-card__body";
+	bodyEl.textContent = "Open the original post on X to view the live embed content.";
+	cardEl.appendChild(bodyEl);
 
-		const footerEl = document.createElement("div");
-		footerEl.className = "x-post-card__footer";
-		cardEl.appendChild(footerEl);
+	const footerEl = document.createElement("div");
+	footerEl.className = "x-post-card__footer";
+	cardEl.appendChild(footerEl);
 
-		const linkEl = document.createElement("a");
-		linkEl.className = "x-post-card__link";
-		linkEl.textContent = "View post on X";
-		linkEl.href = url;
-		linkEl.target = "_blank";
-		linkEl.rel = "noopener noreferrer";
-		footerEl.appendChild(linkEl);
+	const linkEl = document.createElement("a");
+	linkEl.className = "x-post-card__link";
+	linkEl.textContent = "View post on X";
+	linkEl.href = url;
+	linkEl.target = "_blank";
+	linkEl.rel = "noopener noreferrer";
+	footerEl.appendChild(linkEl);
 
-		const idEl = document.createElement("span");
-		idEl.className = "x-post-card__id";
-		idEl.textContent = `Post ID ${statusId}`;
-		footerEl.appendChild(idEl);
+	const idEl = document.createElement("span");
+	idEl.className = "x-post-card__id";
+	idEl.textContent = `Post ID ${statusId}`;
+	footerEl.appendChild(idEl);
 
 	return cardEl;
 }
