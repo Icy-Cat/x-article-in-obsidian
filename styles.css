@@ -66,7 +66,8 @@
 
 .x-article-card {
 	margin: 0 auto;
-	max-width: 700px;
+	width: 684px;
+	max-width: 684px;
 	border: 1px solid rgba(15, 20, 25, 0.08);
 	border-radius: 26px;
 	background: var(--background-primary);
@@ -112,10 +113,13 @@
 }
 
 .x-article-template .public-DraftEditor-content {
+	width: 100%;
+	max-width: 684px;
 	padding-left: 48px;
 	padding-right: 48px;
 	padding-top: 20px;
 	padding-bottom: 80px;
+	box-sizing: border-box;
 }
 
 .x-article-template .DraftEditor-editorContainer,
@@ -209,6 +213,13 @@
 .x-article-template .longform-blockquote span {
 	font-size: inherit;
 	line-height: inherit;
+}
+
+.x-article-template .longform-blockquote .public-DraftStyleDefault-block,
+.x-article-template .longform-blockquote p {
+	white-space: normal;
+	overflow-wrap: break-word;
+	word-break: normal;
 }
 
 .x-article-template .longform-blockquote p,
@@ -439,6 +450,8 @@
 	}
 
 	.x-article-card {
+		width: 100%;
+		max-width: 684px;
 		border-radius: 20px;
 	}
 
