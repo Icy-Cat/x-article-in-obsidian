@@ -30,6 +30,7 @@ export class XArticlePreviewView extends ItemView {
 	private refreshTimer: number | null = null;
 	private sourceScrollEl: HTMLElement | null = null;
 	private sourceScrollHandler: (() => void) | null = null;
+	private lastTargetFilePath: string | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: XArticleInObsidianPlugin) {
 		super(leaf);
@@ -80,6 +81,7 @@ export class XArticlePreviewView extends ItemView {
 		this.registerEvent(this.app.workspace.on("file-open", () => this.queueRefresh()));
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", () => {
+				this.captureTargetMarkdownView();
 				this.bindScrollSync();
 				this.queueRefresh();
 			}),
@@ -87,22 +89,15 @@ export class XArticlePreviewView extends ItemView {
 		this.registerEvent(this.app.workspace.on("editor-change", () => this.queueRefresh()));
 		this.registerEvent(
 			this.app.vault.on("modify", (file) => {
-				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				const activeView = this.getTargetMarkdownView();
 				if (activeView?.file && file.path === activeView.file.path) {
 					this.queueRefresh();
 					return;
 				}
-
-				const markdownLeaf = this.app.workspace
-					.getLeavesOfType("markdown")
-					.find((leaf) => leaf.view instanceof MarkdownView && leaf !== this.leaf);
-				const view = markdownLeaf?.view;
-				if (view instanceof MarkdownView && view.file && file.path === view.file.path) {
-					this.queueRefresh();
-				}
 			}),
 		);
 
+		this.captureTargetMarkdownView();
 		this.bindScrollSync();
 		await this.refresh();
 	}
@@ -179,27 +174,16 @@ export class XArticlePreviewView extends ItemView {
 	}
 
 	private async getTargetContext(): Promise<{ file: TFile; content: string } | null> {
-		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		const activeView = this.getTargetMarkdownView();
 		if (activeView?.file) {
+			this.lastTargetFilePath = activeView.file.path;
 			return {
 				file: activeView.file,
 				content: activeView.editor.getValue(),
 			};
 		}
 
-		const markdownLeaf = this.app.workspace
-			.getLeavesOfType("markdown")
-			.find((leaf) => leaf.view instanceof MarkdownView && leaf !== this.leaf);
-
-		const view = markdownLeaf?.view;
-		if (!(view instanceof MarkdownView) || !view.file) {
-			return null;
-		}
-
-		return {
-			file: view.file,
-			content: await this.app.vault.cachedRead(view.file),
-		};
+		return null;
 	}
 
 	private renderEmptyState(message: string): void {
@@ -316,7 +300,7 @@ export class XArticlePreviewView extends ItemView {
 	}
 
 	private getSourceScrollElement(): HTMLElement | null {
-		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		const activeView = this.getTargetMarkdownView();
 		if (!activeView) {
 			return null;
 		}
@@ -325,6 +309,61 @@ export class XArticlePreviewView extends ItemView {
 			activeView.containerEl.querySelector(".cm-scroller") ??
 			activeView.containerEl.querySelector(".markdown-preview-view")
 		);
+	}
+
+	private getTargetMarkdownView(): MarkdownView | null {
+		const activeEditorFile = this.app.workspace.activeEditor?.file;
+		if (activeEditorFile) {
+			const matchingLeaf = this.app.workspace.getLeavesOfType("markdown").find((leaf) => {
+				return (
+					leaf !== this.leaf &&
+					leaf.view instanceof MarkdownView &&
+					leaf.view.file?.path === activeEditorFile.path
+				);
+			});
+
+			if (matchingLeaf?.view instanceof MarkdownView) {
+				return matchingLeaf.view;
+			}
+		}
+
+		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (activeView && activeView.leaf !== this.leaf) {
+			return activeView;
+		}
+
+		if (this.lastTargetFilePath) {
+			const matchingLeaf = this.app.workspace.getLeavesOfType("markdown").find((leaf) => {
+				return (
+					leaf !== this.leaf &&
+					leaf.view instanceof MarkdownView &&
+					leaf.view.file?.path === this.lastTargetFilePath
+				);
+			});
+
+			if (matchingLeaf?.view instanceof MarkdownView) {
+				return matchingLeaf.view;
+			}
+		}
+
+		const fallbackLeaf = this.app.workspace.getLeavesOfType("markdown").find((leaf) => {
+			return leaf !== this.leaf && leaf.view instanceof MarkdownView && Boolean(leaf.view.file);
+		});
+
+		return fallbackLeaf?.view instanceof MarkdownView ? fallbackLeaf.view : null;
+	}
+
+	private captureTargetMarkdownView(): void {
+		const activeEditorFile = this.app.workspace.activeEditor?.file;
+		if (activeEditorFile) {
+			this.lastTargetFilePath = activeEditorFile.path;
+			return;
+		}
+
+		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (activeView?.file && activeView.leaf !== this.leaf) {
+			this.lastTargetFilePath = activeView.file.path;
+		}
 	}
 
 	private syncToSourceScroll(): void {
