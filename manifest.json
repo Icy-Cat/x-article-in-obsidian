@@ -3,7 +3,7 @@
 	"name": "X Article Preview",
 	"version": "1.0.0",
 	"minAppVersion": "1.6.0",
-	"description": "Preview the active Markdown note with an X Article-inspired reading layout.",
-	"author": "OpenAI",
+	"description": "Preview the current Markdown note in an X Article-style sidebar with synchronized scrolling and rich embeds.",
+	"author": "Icy-Cat",
 	"isDesktopOnly": false
 }
