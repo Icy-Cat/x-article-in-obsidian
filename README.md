@@ -26,7 +26,7 @@
 
 ### 方式一：从 Release 安装
 
-1. 打开 GitHub Releases 页面
+1. 打开 [GitHub Releases 页面](https://github.com/Icy-Cat/x-article-in-obsidian/releases/latest)
 2. 下载最新版本中的 `main.js`、`manifest.json`、`styles.css`，或直接下载 zip 包
 3. 解压或复制到下面目录：
 
@@ -57,6 +57,8 @@ npm run build
 ## 发布
 
 这个仓库已经配置了 GitHub Actions 自动构建和发布。
+
+最新发布版本：<https://github.com/Icy-Cat/x-article-in-obsidian/releases/latest>
 
 发布一个新版本时：
 

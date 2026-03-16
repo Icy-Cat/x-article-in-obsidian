@@ -26,7 +26,7 @@ Render the current Markdown note into an X Article-style reading sidebar, so you
 
 ### Option 1: install from Release
 
-1. Open the GitHub Releases page
+1. Open the [GitHub Releases page](https://github.com/Icy-Cat/x-article-in-obsidian/releases/latest)
 2. Download `main.js`, `manifest.json`, and `styles.css`, or download the zip package
 3. Extract or copy them into:
 
@@ -57,6 +57,8 @@ Then reload Obsidian and enable the plugin in **Settings → Community plugins**
 ## Release
 
 This repository includes GitHub Actions for automatic build and release.
+
+Latest release: <https://github.com/Icy-Cat/x-article-in-obsidian/releases/latest>
 
 To publish a new version:
 
