@@ -1,0 +1,79 @@
+name: Release plugin
+
+on:
+  push:
+    tags:
+      - "*.*.*"
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Read manifest metadata
+        id: manifest
+        run: |
+          echo "id=$(node -p "require('./manifest.json').id")" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p "require('./manifest.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag matches manifest version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${{ steps.manifest.outputs.version }}"
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Tag $TAG does not match manifest version $VERSION"
+            exit 1
+          fi
+
+      - name: Verify release files
+        run: |
+          test -f main.js
+          test -f manifest.json
+          test -f styles.css
+
+      - name: Package zip
+        run: |
+          PLUGIN_ID="${{ steps.manifest.outputs.id }}"
+          VERSION="${{ steps.manifest.outputs.version }}"
+          mkdir -p "dist/$PLUGIN_ID"
+          cp main.js manifest.json styles.css "dist/$PLUGIN_ID/"
+          cd dist
+          zip -r "$PLUGIN_ID-$VERSION.zip" "$PLUGIN_ID"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.manifest.outputs.id }}-${{ steps.manifest.outputs.version }}
+          path: |
+            main.js
+            manifest.json
+            styles.css
+            dist/${{ steps.manifest.outputs.id }}-${{ steps.manifest.outputs.version }}.zip
+
+      - name: Publish GitHub release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            main.js
+            manifest.json
+            styles.css
+            dist/${{ steps.manifest.outputs.id }}-${{ steps.manifest.outputs.version }}.zip

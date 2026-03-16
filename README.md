@@ -24,6 +24,20 @@
 
 ## 安装
 
+### 方式一：从 Release 安装
+
+1. 打开 GitHub Releases 页面
+2. 下载最新版本中的 `main.js`、`manifest.json`、`styles.css`，或直接下载 zip 包
+3. 解压或复制到下面目录：
+
+```text
+<Vault>/.obsidian/plugins/x-article-in-obsidian/
+```
+
+4. 重载 Obsidian，并在 **设置 → 第三方插件** 中启用
+
+### 方式二：从源码构建
+
 ```bash
 npm install
 npm run build
@@ -39,6 +53,27 @@ npm run build
 ```
 
 然后重载 Obsidian，并在 **设置 → 第三方插件** 中启用。
+
+## 发布
+
+这个仓库已经配置了 GitHub Actions 自动构建和发布。
+
+发布一个新版本时：
+
+```bash
+npm version patch
+git push
+git push --tags
+```
+
+发布流程会自动：
+
+- 校验 `manifest.json` 中的版本号
+- 构建 `main.js`
+- 打包可分发 zip
+- 上传 `main.js`、`manifest.json`、`styles.css` 和 zip 到 GitHub Release
+
+`versions.json` 会在执行 `npm version` 时自动同步更新。
 
 ## 常用示例
 

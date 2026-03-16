@@ -24,6 +24,20 @@ Render the current Markdown note into an X Article-style reading sidebar, so you
 
 ## Install
 
+### Option 1: install from Release
+
+1. Open the GitHub Releases page
+2. Download `main.js`, `manifest.json`, and `styles.css`, or download the zip package
+3. Extract or copy them into:
+
+```text
+<Vault>/.obsidian/plugins/x-article-in-obsidian/
+```
+
+4. Reload Obsidian and enable the plugin in **Settings → Community plugins**
+
+### Option 2: build from source
+
 ```bash
 npm install
 npm run build
@@ -39,6 +53,27 @@ Place these files in:
 ```
 
 Then reload Obsidian and enable the plugin in **Settings → Community plugins**.
+
+## Release
+
+This repository includes GitHub Actions for automatic build and release.
+
+To publish a new version:
+
+```bash
+npm version patch
+git push
+git push --tags
+```
+
+The workflow will automatically:
+
+- verify the version in `manifest.json`
+- build `main.js`
+- package a distributable zip
+- upload `main.js`, `manifest.json`, `styles.css`, and the zip to GitHub Release
+
+`versions.json` is updated automatically when `npm version` runs.
 
 ## Common examples
 
