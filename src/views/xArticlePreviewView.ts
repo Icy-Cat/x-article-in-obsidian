@@ -12,10 +12,17 @@ import type XArticleInObsidianPlugin from "../main";
 import { collectPostEmbedCache, enhanceArticlePreview } from "../renderEnhancements";
 import { remapArticleDom } from "../templateMapper";
 
+const X_POST_URL_PATTERN =
+	/^https?:\/\/(?:www\.)?(?:x\.com|twitter\.com)\/[^/]+\/status\/\d+(?:[/?#].*)?$/i;
+const HERO_SUMMARY_TARGET_LENGTH = 260;
+
 export class XArticlePreviewView extends ItemView {
 	plugin: XArticleInObsidianPlugin;
-	private statusEl!: HTMLDivElement;
-	private metaEl!: HTMLDivElement;
+	private heroEl!: HTMLDivElement;
+	private heroCoverEl!: HTMLDivElement;
+	private heroLabelEl!: HTMLDivElement;
+	private heroTitleEl!: HTMLDivElement;
+	private heroSummaryEl!: HTMLDivElement;
 	private noticeEl!: HTMLDivElement;
 	private articleEl!: HTMLDivElement;
 	private refreshButtonEl!: HTMLButtonElement;
@@ -48,11 +55,15 @@ export class XArticlePreviewView extends ItemView {
 		const shellEl = this.contentEl.createDiv({ cls: "x-article-shell" });
 		const chromeEl = shellEl.createDiv({ cls: "x-article-chrome" });
 
-		const badgeEl = chromeEl.createDiv({ cls: "x-article-badge" });
-		badgeEl.setText("Preview");
+		this.heroEl = chromeEl.createDiv({ cls: "x-article-hero" });
+		this.heroCoverEl = this.heroEl.createDiv({ cls: "x-article-hero__cover" });
+		const heroBadgeEl = this.heroCoverEl.createDiv({ cls: "x-article-hero__badge" });
+		this.heroLabelEl = heroBadgeEl.createDiv({ cls: "x-article-hero__label" });
+		this.heroLabelEl.setText("Article");
 
-		this.statusEl = chromeEl.createDiv({ cls: "x-article-status" });
-		this.metaEl = chromeEl.createDiv({ cls: "x-article-meta" });
+		const heroBodyEl = this.heroEl.createDiv({ cls: "x-article-hero__body" });
+		this.heroTitleEl = heroBodyEl.createDiv({ cls: "x-article-hero__title" });
+		this.heroSummaryEl = heroBodyEl.createDiv({ cls: "x-article-hero__summary" });
 
 		this.refreshButtonEl = chromeEl.createEl("button", {
 			cls: "x-article-refresh",
@@ -156,8 +167,7 @@ export class XArticlePreviewView extends ItemView {
 
 			remapArticleDom(this.articleEl);
 			enhanceArticlePreview(this.articleEl, postEmbedCache);
-			this.statusEl.setText(context.file.basename);
-			this.metaEl.setText(`Previewing ${context.file.path}`);
+			this.renderHeroCard(context.file.basename);
 			this.syncToSourceScroll();
 		} catch (error) {
 			console.error("Failed to render X article preview", error);
@@ -193,12 +203,87 @@ export class XArticlePreviewView extends ItemView {
 	}
 
 	private renderEmptyState(message: string): void {
-		this.statusEl.setText("No note selected");
-		this.metaEl.setText("The preview follows the current Markdown file.");
+		this.renderHeroPlaceholder("No note selected", "Open a Markdown note to preview it as an X article.");
 		this.noticeEl.addClass("is-hidden");
 		this.articleEl.empty();
 		this.articleEl.addClass("is-empty");
 		this.articleEl.createDiv({ cls: "x-article-empty" }).setText(message);
+	}
+
+	private renderHeroCard(fallbackTitle: string): void {
+		const title =
+			this.articleEl.querySelector(".longform-header-one")?.textContent?.trim() ||
+			this.articleEl.querySelector(".longform-header-two")?.textContent?.trim() ||
+			fallbackTitle;
+		const summary =
+			this.extractHeroSummary() || "Previewing the current note with an X article layout.";
+		const coverSrc =
+			this.articleEl.querySelector<HTMLImageElement>("img")?.getAttribute("src") || null;
+
+		this.heroTitleEl.setText(title);
+		this.heroSummaryEl.setText(summary);
+		this.heroCoverEl.toggleClass("has-image", Boolean(coverSrc));
+		if (coverSrc) {
+			this.heroCoverEl.style.setProperty("--x-article-cover-image", `url("${coverSrc}")`);
+		} else {
+			this.heroCoverEl.style.removeProperty("--x-article-cover-image");
+		}
+	}
+
+	private renderHeroPlaceholder(title: string, summary: string): void {
+		this.heroTitleEl.setText(title);
+		this.heroSummaryEl.setText(summary);
+		this.heroCoverEl.removeClass("has-image");
+		this.heroCoverEl.style.removeProperty("--x-article-cover-image");
+	}
+
+	private extractHeroSummary(): string {
+		const candidates = Array.from(
+			this.articleEl.querySelectorAll<HTMLElement>(
+				[
+					".x-article-paragraph",
+					".longform-unstyled",
+					".longform-blockquote",
+					".longform-unordered-list-item .public-DraftStyleDefault-block",
+					".longform-ordered-list-item .public-DraftStyleDefault-block",
+				].join(", "),
+			),
+		);
+
+		const parts: string[] = [];
+		for (const candidate of candidates) {
+			if (
+				candidate.querySelector(
+					".x-post-embed, .x-post-card, .x-article-code-frame, .x-article-separator, img, table, iframe, blockquote.twitter-tweet",
+				)
+			) {
+				continue;
+			}
+
+			const text = (candidate.textContent ?? "")
+				.replace(/[ \t]+/g, " ")
+				.replace(/\n{3,}/g, "\n\n")
+				.trim();
+			if (text.length === 0) {
+				continue;
+			}
+
+			const links = Array.from(candidate.querySelectorAll<HTMLAnchorElement>("a"));
+			if (
+				links.length > 0 &&
+				links.every((link) => X_POST_URL_PATTERN.test(link.href)) &&
+				text.replace(/\s+/g, "") === links.map((link) => link.href).join("").replace(/\s+/g, "")
+			) {
+				continue;
+			}
+
+			parts.push(text);
+			if (parts.join("\n\n").length >= HERO_SUMMARY_TARGET_LENGTH) {
+				break;
+			}
+		}
+
+		return parts.join("\n\n").trim();
 	}
 
 	private bindScrollSync(): void {

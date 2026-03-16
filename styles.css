@@ -13,43 +13,57 @@
 
 .x-article-chrome {
 	display: grid;
-	grid-template-columns: auto 1fr auto;
-	grid-template-areas:
-		"badge status refresh"
-		"badge meta refresh";
-	gap: 4px 12px;
-	align-items: center;
+	gap: 14px;
 	margin: 0 auto 18px;
-	max-width: 700px;
+	max-width: 684px;
 }
 
-.x-article-badge {
-	grid-area: badge;
-	padding: 6px 12px;
-	border: 1px solid rgba(29, 155, 240, 0.22);
+.x-article-hero {
+	overflow: hidden;
+	border: 1px solid rgba(15, 20, 25, 0.08);
+	border-radius: 20px;
+	background: var(--background-primary);
+	box-shadow: 0 10px 30px rgba(15, 20, 25, 0.06);
+}
+
+.x-article-hero__cover {
+	position: relative;
+	height: 0;
+	padding-bottom: 40%;
+	background:
+		linear-gradient(135deg, rgba(29, 155, 240, 0.35), rgba(15, 20, 25, 0.12)),
+		linear-gradient(180deg, rgba(15, 20, 25, 0.04), rgba(15, 20, 25, 0.16));
+	background-size: cover;
+	background-position: center;
+}
+
+.x-article-hero__cover.has-image {
+	background-image:
+		linear-gradient(180deg, rgba(15, 20, 25, 0.06), rgba(15, 20, 25, 0.16)),
+		var(--x-article-cover-image);
+}
+
+.x-article-hero__badge {
+	position: absolute;
+	right: 16px;
+	bottom: 16px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 8px 12px;
 	border-radius: 999px;
-	background: rgba(29, 155, 240, 0.08);
-	color: #1d9bf0;
-	font: 700 11px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
+	background: rgba(15, 20, 25, 0.72);
+	backdrop-filter: blur(8px);
 }
 
-.x-article-status {
-	grid-area: status;
-	color: var(--text-normal);
-	font: 700 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-
-.x-article-meta {
-	grid-area: meta;
-	color: var(--text-muted);
-	font: 500 12px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-	word-break: break-all;
+.x-article-hero__label {
+	color: rgb(255, 255, 255);
+	font: 700 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	letter-spacing: 0.01em;
 }
 
 .x-article-refresh {
-	grid-area: refresh;
+	justify-self: end;
 	padding: 9px 15px;
 	border: 0;
 	border-radius: 999px;
@@ -62,6 +76,26 @@
 .x-article-refresh:disabled {
 	opacity: 0.65;
 	cursor: default;
+}
+
+.x-article-hero__body {
+	padding: 18px 18px 20px;
+}
+
+.x-article-hero__title {
+	color: rgb(15, 20, 25);
+	font: 700 24px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.x-article-hero__summary {
+	display: -webkit-box;
+	margin-top: 10px;
+	overflow: hidden;
+	color: rgb(15, 20, 25);
+	font: 400 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	white-space: pre-line;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 4;
 }
 
 .x-article-card {
@@ -78,6 +112,16 @@
 .theme-dark .x-article-card {
 	border-color: rgba(231, 233, 234, 0.1);
 	box-shadow: none;
+}
+
+.theme-dark .x-article-hero {
+	border-color: rgba(231, 233, 234, 0.1);
+	box-shadow: none;
+}
+
+.theme-dark .x-article-hero__title,
+.theme-dark .x-article-hero__summary {
+	color: rgb(231, 233, 234);
 }
 
 .x-article-draft-notice {
@@ -498,11 +542,7 @@
 	}
 
 	.x-article-chrome {
-		grid-template-columns: 1fr auto;
-		grid-template-areas:
-			"badge refresh"
-			"status status"
-			"meta meta";
+		gap: 12px;
 	}
 
 	.x-article-card {
