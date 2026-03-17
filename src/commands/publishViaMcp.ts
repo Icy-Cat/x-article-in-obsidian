@@ -58,7 +58,7 @@ export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): P
 			await client.callTool("browser_navigate", { url: "https://x.com/compose/articles" });
 			await client.callTool("browser_wait_for", { time: 2 });
 			await client.callTool("browser_evaluate", {
-				function: `async () => {
+				function: normalizeEvaluateSource(`async () => {
 					const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 					const findCreateButton = () =>
 						document.querySelector("button[aria-label='create']") ||
@@ -84,9 +84,16 @@ export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): P
 					}
 
 					throw new Error("Editor did not become ready after clicking create.");
-				}`,
+				}`),
 			});
-			await client.callTool("browser_evaluate", { function: functionSource });
+			const publishResult = parsePlaywrightToolResult(
+				await client.callTool("browser_evaluate", { function: normalizeEvaluateSource(functionSource) }),
+			);
+			if (!isSuccessfulPublishResult(publishResult)) {
+				throw new Error(
+					`Browser publish script did not report success. Result: ${stringifyPlaywrightResult(publishResult)}`,
+				);
+			}
 		} finally {
 			await client.close();
 		}
@@ -780,6 +787,93 @@ function normalizeMcpErrorMessage(error: unknown): string {
 		return "Playwright MCP disconnected before initialization completed. Confirm Chrome or Edge is open and the Playwright MCP Bridge extension is connected.";
 	}
 	return error.message;
+}
+
+function parsePlaywrightToolResult(result: unknown): unknown {
+	if (!result || typeof result !== "object") {
+		return result;
+	}
+
+	const content = (result as { content?: Array<{ type?: string; text?: string }> }).content;
+	if (!Array.isArray(content)) {
+		return result;
+	}
+
+	const textParts = content.filter(
+		(part): part is { type: string; text: string } =>
+			Boolean(part) && part.type === "text" && typeof part.text === "string",
+	);
+	if (textParts.length !== 1) {
+		return result;
+	}
+
+	const firstTextPart = textParts[0];
+	if (!firstTextPart) {
+		return result;
+	}
+
+	let text = firstTextPart.text;
+	const codeMarker = text.indexOf("### Ran Playwright code");
+	if (codeMarker !== -1) {
+		text = text.slice(0, codeMarker).trim();
+	}
+	const resultMarker = text.indexOf("### Result\n");
+	if (resultMarker !== -1) {
+		text = text.slice(resultMarker + "### Result\n".length).trim();
+	}
+
+	try {
+		return JSON.parse(text);
+	} catch {
+		return text;
+	}
+}
+
+function normalizeEvaluateSource(source: string): string {
+	const stripped = source.trim();
+	if (!stripped) {
+		return "() => undefined";
+	}
+	if (stripped.startsWith("(") && stripped.endsWith(")()")) {
+		return `() => (${stripped})`;
+	}
+	if (/^(async\s+)?\([^)]*\)\s*=>/.test(stripped)) {
+		return stripped;
+	}
+	if (/^(async\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=>/.test(stripped)) {
+		return stripped;
+	}
+	if (stripped.startsWith("function ") || stripped.startsWith("async function ")) {
+		return stripped;
+	}
+	return `() => (${stripped})`;
+}
+
+function isSuccessfulPublishResult(
+	result: unknown,
+): result is { ok: true; processedItems?: number; totalItems?: number } {
+	return Boolean(
+		result &&
+			typeof result === "object" &&
+			"ok" in result &&
+			(result as { ok?: unknown }).ok === true,
+	);
+}
+
+function stringifyPlaywrightResult(result: unknown): string {
+	if (typeof result === "string") {
+		return result.length > 300 ? `${result.slice(0, 300)}...` : result;
+	}
+
+	try {
+		const serialized = JSON.stringify(result);
+		if (!serialized) {
+			return String(result);
+		}
+		return serialized.length > 300 ? `${serialized.slice(0, 300)}...` : serialized;
+	} catch {
+		return String(result);
+	}
 }
 
 function getNodeRequire(): NodeRequireLike {
