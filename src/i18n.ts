@@ -21,6 +21,7 @@ export type TranslationKey =
 	| "settings.language.name"
 	| "settings.language.desc"
 	| "settings.heading.preview"
+	| "settings.heading.publish"
 	| "settings.autoRefresh.name"
 	| "settings.autoRefresh.desc"
 	| "settings.stripFrontmatter.name"
@@ -32,6 +33,14 @@ export type TranslationKey =
 	| "settings.locale.auto"
 	| "settings.locale.en"
 	| "settings.locale.zh-CN"
+	| "settings.playwrightToken.name"
+	| "settings.playwrightToken.desc"
+	| "settings.playwrightToken.placeholder"
+	| "settings.playwrightToken.detect"
+	| "settings.playwrightToken.clear"
+	| "settings.playwrightBridge.name"
+	| "settings.playwrightBridge.desc"
+	| "settings.playwrightBridge.link"
 	| "notice.copyScriptSuccess"
 	| "error.buildPublishScriptFailed"
 	| "error.openMarkdownFirst"
@@ -40,6 +49,8 @@ export type TranslationKey =
 	| "notice.publishSuccess"
 	| "notice.publishFailed"
 	| "notice.playwrightDisconnected"
+	| "notice.playwrightTokenDetected"
+	| "notice.playwrightTokenMissing"
 	| "render.copyCodeBlock"
 	| "render.loadingPostPreview"
 	| "render.fallbackPostBody"
@@ -69,6 +80,7 @@ const translations: Translations = {
 		"settings.language.name": "Language",
 		"settings.language.desc": "Choose the language for commands, notices, and settings text.",
 		"settings.heading.preview": "Preview",
+		"settings.heading.publish": "Publish",
 		"settings.autoRefresh.name": "Auto refresh",
 		"settings.autoRefresh.desc": "Refresh the preview when you switch notes or edit the current one.",
 		"settings.stripFrontmatter.name": "Hide frontmatter",
@@ -81,6 +93,15 @@ const translations: Translations = {
 		"settings.locale.auto": "Follow system",
 		"settings.locale.en": "English",
 		"settings.locale.zh-CN": "简体中文",
+		"settings.playwrightToken.name": "Playwright token",
+		"settings.playwrightToken.desc":
+			"Use a saved Playwright MCP extension token to skip repeated browser profile scans. You can paste one manually or detect it automatically.",
+		"settings.playwrightToken.placeholder": "Paste PLAYWRIGHT_MCP_EXTENSION_TOKEN",
+		"settings.playwrightToken.detect": "Detect",
+		"settings.playwrightToken.clear": "Clear",
+		"settings.playwrightBridge.name": "Playwright MCP Bridge",
+		"settings.playwrightBridge.desc": "Open the Chrome Web Store page to install or manage the bridge extension.",
+		"settings.playwrightBridge.link": "Open extension page",
 		"notice.copyScriptSuccess": "Copied the X publish script to the clipboard.",
 		"error.buildPublishScriptFailed": "Failed to build the publish script.",
 		"error.openMarkdownFirst": "Open a Markdown note first.",
@@ -90,6 +111,8 @@ const translations: Translations = {
 		"notice.publishFailed": "Publishing through MCP failed.",
 		"notice.playwrightDisconnected":
 			"Playwright MCP disconnected before initialization finished. Make sure Chrome or Edge is open and the bridge extension is connected.",
+		"notice.playwrightTokenDetected": "Detected and saved the Playwright token ({source}).",
+		"notice.playwrightTokenMissing": "No Playwright token was detected.",
 		"render.copyCodeBlock": "Copy code block",
 		"render.loadingPostPreview": "Loading post preview...",
 		"render.fallbackPostBody": "Open the original post on X to view the live embed content.",
@@ -116,6 +139,7 @@ const translations: Translations = {
 		"settings.language.name": "语言",
 		"settings.language.desc": "设置命令、通知和配置页所使用的界面语言。",
 		"settings.heading.preview": "预览",
+		"settings.heading.publish": "发布",
 		"settings.autoRefresh.name": "自动刷新",
 		"settings.autoRefresh.desc": "切换笔记或编辑当前笔记时，自动刷新右侧预览。",
 		"settings.stripFrontmatter.name": "隐藏 Frontmatter",
@@ -127,6 +151,15 @@ const translations: Translations = {
 		"settings.locale.auto": "跟随系统",
 		"settings.locale.en": "English",
 		"settings.locale.zh-CN": "简体中文",
+		"settings.playwrightToken.name": "Playwright Token",
+		"settings.playwrightToken.desc":
+			"保存 Playwright MCP 扩展 token，避免每次都扫描浏览器配置。可手动填写，也可自动检测后写入。",
+		"settings.playwrightToken.placeholder": "粘贴 PLAYWRIGHT_MCP_EXTENSION_TOKEN",
+		"settings.playwrightToken.detect": "自动检测",
+		"settings.playwrightToken.clear": "清空",
+		"settings.playwrightBridge.name": "Playwright MCP Bridge",
+		"settings.playwrightBridge.desc": "打开 Chrome 应用商店页面，安装或管理这个桥接扩展。",
+		"settings.playwrightBridge.link": "打开扩展页面",
 		"notice.copyScriptSuccess": "已将 X 发布脚本复制到剪贴板。",
 		"error.buildPublishScriptFailed": "生成发布脚本失败。",
 		"error.openMarkdownFirst": "请先打开一篇 Markdown 笔记。",
@@ -136,6 +169,8 @@ const translations: Translations = {
 		"notice.publishFailed": "通过 MCP 发布失败。",
 		"notice.playwrightDisconnected":
 			"Playwright MCP 在初始化完成前断开连接。请确认 Chrome 或 Edge 已打开，且桥接扩展已连接。",
+		"notice.playwrightTokenDetected": "已检测并保存 Playwright token（{source}）。",
+		"notice.playwrightTokenMissing": "未检测到 Playwright token。",
 		"render.copyCodeBlock": "复制代码块",
 		"render.loadingPostPreview": "正在加载帖子预览...",
 		"render.fallbackPostBody": "打开 X 原帖即可查看实时嵌入内容。",

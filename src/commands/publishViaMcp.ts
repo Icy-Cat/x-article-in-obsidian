@@ -47,7 +47,7 @@ export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): P
 
 	try {
 		const functionSource = await buildPublishFunctionFromActiveNote(plugin);
-		const runtime = await detectPlaywrightRuntime();
+		const runtime = await detectPlaywrightRuntime(plugin);
 		if (!runtime) {
 			new Notice(plugin.t("notice.noBrowserBridge"));
 			return;
@@ -110,7 +110,25 @@ export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): P
 	}
 }
 
-async function detectPlaywrightRuntime(): Promise<McpRuntimeConfig | null> {
+export async function detectAndPersistPlaywrightToken(
+	plugin: XArticleInObsidianPlugin,
+): Promise<string | null> {
+	const detection = detectPlaywrightToken(plugin, undefined, { ignoreSavedToken: true });
+	if (!detection) {
+		new Notice(plugin.t("notice.playwrightTokenMissing"));
+		return null;
+	}
+
+	if (plugin.settings.playwrightToken !== detection.token) {
+		plugin.settings.playwrightToken = detection.token;
+		await plugin.saveSettings();
+	}
+
+	new Notice(plugin.t("notice.playwrightTokenDetected", { source: detection.source }));
+	return detection.token;
+}
+
+async function detectPlaywrightRuntime(plugin: XArticleInObsidianPlugin): Promise<McpRuntimeConfig | null> {
 	const req = getNodeRequire();
 	const path = req("node:path") as typeof import("node:path");
 	const os = req("node:os") as typeof import("node:os");
@@ -121,11 +139,16 @@ async function detectPlaywrightRuntime(): Promise<McpRuntimeConfig | null> {
 		.map((configPath) => readMcpConfig(configPath))
 		.filter((config): config is ParsedMcpConfig => config !== null);
 
-	const extensionToken =
-		processRef.env[PLAYWRIGHT_TOKEN_ENV] ??
-		findPlaywrightTokenInConfigs(parsedConfigs) ??
-		discoverPlaywrightExtensionToken(req, path, os, processRef) ??
-		undefined;
+	const detectedToken = detectPlaywrightToken(plugin, parsedConfigs);
+	const extensionToken = detectedToken?.token ?? processRef.env[PLAYWRIGHT_TOKEN_ENV] ?? undefined;
+
+	if (
+		detectedToken?.source === "browser profile scan" &&
+		detectedToken.token !== plugin.settings.playwrightToken
+	) {
+		plugin.settings.playwrightToken = detectedToken.token;
+		void plugin.saveSettings();
+	}
 
 	return (
 		findPlaywrightRuntime(parsedConfigs, extensionToken) ??
@@ -138,6 +161,45 @@ async function detectPlaywrightRuntime(): Promise<McpRuntimeConfig | null> {
 				}
 			: null)
 	);
+}
+
+function detectPlaywrightToken(
+	plugin: XArticleInObsidianPlugin,
+	parsedConfigs?: ParsedMcpConfig[],
+	options?: { ignoreSavedToken?: boolean },
+): { token: string; source: string } | null {
+	const req = getNodeRequire();
+	const path = req("node:path") as typeof import("node:path");
+	const os = req("node:os") as typeof import("node:os");
+	const processRef = req("node:process") as typeof import("node:process");
+
+	const savedToken = plugin.settings.playwrightToken.trim();
+	if (!options?.ignoreSavedToken && savedToken) {
+		return { token: savedToken, source: "plugin settings" };
+	}
+
+	const envToken = processRef.env[PLAYWRIGHT_TOKEN_ENV];
+	if (envToken) {
+		return { token: envToken, source: PLAYWRIGHT_TOKEN_ENV };
+	}
+
+	const configs =
+		parsedConfigs ??
+		getDefaultMcpConfigPaths(path, os.homedir(), processRef.cwd())
+			.map((configPath) => readMcpConfig(configPath))
+			.filter((config): config is ParsedMcpConfig => config !== null);
+
+	const configToken = findPlaywrightTokenInConfigs(configs);
+	if (configToken) {
+		return { token: configToken, source: "MCP config" };
+	}
+
+	const scannedToken = discoverPlaywrightExtensionToken(req, path, os, processRef);
+	if (scannedToken) {
+		return { token: scannedToken, source: "browser profile scan" };
+	}
+
+	return null;
 }
 
 function readMcpConfig(configPath: string): ParsedMcpConfig | null {

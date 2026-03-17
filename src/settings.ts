@@ -1,9 +1,14 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
+import { detectAndPersistPlaywrightToken } from "./commands/publishViaMcp";
 import { LocaleSetting } from "./i18n";
 import XArticleInObsidianPlugin from "./main";
 
+const PLAYWRIGHT_BRIDGE_STORE_URL =
+	"https://chromewebstore.google.com/detail/playwright-mcp-bridge/mmlmfjhmonkocbjadbfplnigmagldckm";
+
 export interface XArticlePreviewSettings {
 	locale: LocaleSetting;
+	playwrightToken: string;
 	autoRefresh: boolean;
 	stripFrontmatter: boolean;
 	useFilenameAsTitle: boolean;
@@ -12,6 +17,7 @@ export interface XArticlePreviewSettings {
 
 export const DEFAULT_SETTINGS: XArticlePreviewSettings = {
 	locale: "auto",
+	playwrightToken: "",
 	autoRefresh: true,
 	stripFrontmatter: true,
 	useFilenameAsTitle: false,
@@ -48,6 +54,44 @@ export class XArticleSettingTab extends PluginSettingTab {
 							void this.plugin.refreshPreviewViews();
 						});
 					}),
+			);
+
+		new Setting(containerEl).setName(this.plugin.t("settings.heading.publish")).setHeading();
+
+		new Setting(containerEl)
+			.setName(this.plugin.t("settings.playwrightToken.name"))
+			.setDesc(this.plugin.t("settings.playwrightToken.desc"))
+			.addText((text) =>
+				text
+					.setPlaceholder(this.plugin.t("settings.playwrightToken.placeholder"))
+					.setValue(this.plugin.settings.playwrightToken)
+					.onChange((value) => {
+						this.plugin.settings.playwrightToken = value.trim();
+						void this.plugin.saveSettings();
+					}),
+			)
+			.addButton((button) =>
+				button.setButtonText(this.plugin.t("settings.playwrightToken.detect")).onClick(() => {
+					void detectAndPersistPlaywrightToken(this.plugin).then(() => this.display());
+				}),
+			)
+			.addExtraButton((button) =>
+				button
+					.setIcon("reset")
+					.setTooltip(this.plugin.t("settings.playwrightToken.clear"))
+					.onClick(() => {
+						this.plugin.settings.playwrightToken = "";
+						void this.plugin.saveSettings().then(() => this.display());
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(this.plugin.t("settings.playwrightBridge.name"))
+			.setDesc(this.plugin.t("settings.playwrightBridge.desc"))
+			.addButton((button) =>
+				button
+					.setButtonText(this.plugin.t("settings.playwrightBridge.link"))
+					.onClick(() => window.open(PLAYWRIGHT_BRIDGE_STORE_URL, "_blank", "noopener,noreferrer")),
 			);
 
 		new Setting(containerEl).setName(this.plugin.t("settings.heading.preview")).setHeading();
