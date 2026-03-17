@@ -28,21 +28,39 @@ type PublishItem =
 	  };
 
 export async function copyPublishScript(plugin: XArticleInObsidianPlugin): Promise<void> {
+	try {
+		const script = await buildPublishScriptFromActiveNote(plugin);
+		await navigator.clipboard.writeText(script);
+		new Notice("Copied X publish script to clipboard.");
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Failed to build publish script.";
+		new Notice(message);
+	}
+}
+
+export async function buildPublishScriptFromActiveNote(
+	plugin: XArticleInObsidianPlugin,
+): Promise<string> {
+	const payload = await buildPublishPayloadFromActiveNote(plugin);
+	return buildBrowserPublishScript(payload.html, payload.markdown, payload.items);
+}
+
+export async function buildPublishFunctionFromActiveNote(
+	plugin: XArticleInObsidianPlugin,
+): Promise<string> {
+	const payload = await buildPublishPayloadFromActiveNote(plugin);
+	return buildBrowserPublishFunction(payload.html, payload.markdown, payload.items);
+}
+
+async function buildPublishPayloadFromActiveNote(
+	plugin: XArticleInObsidianPlugin,
+): Promise<{ html: string; markdown: string; items: PublishItem[] }> {
 	const markdownView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
 	if (!markdownView?.file) {
-		new Notice("Open a Markdown note first.");
-		return;
+		throw new Error("Open a Markdown note first.");
 	}
 
-	const payload = await buildPublishPayload(
-		plugin,
-		markdownView.file,
-		markdownView.editor.getValue(),
-	);
-	const script = buildBrowserPublishScript(payload.html, payload.markdown, payload.items);
-
-	await navigator.clipboard.writeText(script);
-	new Notice("Copied X publish script to clipboard.");
+	return buildPublishPayload(plugin, markdownView.file, markdownView.editor.getValue());
 }
 
 async function buildPublishPayload(
@@ -393,7 +411,11 @@ function cleanupRenderedHtml(container: HTMLElement): void {
 }
 
 function buildBrowserPublishScript(html: string, markdown: string, items: PublishItem[]): string {
-	return `(() => {
+	return `(${buildBrowserPublishFunction(html, markdown, items)})();`;
+}
+
+function buildBrowserPublishFunction(html: string, markdown: string, items: PublishItem[]): string {
+	return `async () => {
   const payload = ${JSON.stringify({ html, markdown, items }, null, 2)};
 
   const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -705,6 +727,32 @@ function buildBrowserPublishScript(html: string, markdown: string, items: Publis
     );
   }
 
+  function findByXPath(xpath) {
+    try {
+      const result = document.evaluate(
+        xpath,
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null,
+      );
+      return result.singleNodeValue;
+    } catch {
+      return null;
+    }
+  }
+
+  async function waitForXPath(xpath, attempts = 20, delayMs = 150) {
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const node = findByXPath(xpath);
+      if (node) {
+        return node;
+      }
+      await sleep(delayMs);
+    }
+    return null;
+  }
+
   async function openInsertMenu(optionLabels, anchorInfo) {
     if (anchorInfo?.token) {
       await clickAnchorToken(anchorInfo.token);
@@ -874,38 +922,20 @@ function buildBrowserPublishScript(html: string, markdown: string, items: Publis
     urlInput.dispatchEvent(new Event("input", { bubbles: true }));
     urlInput.dispatchEvent(new Event("change", { bubbles: true }));
     await sleep(200);
-    urlInput.focus();
-    await sleep(50);
-    urlInput.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Enter",
-        code: "Enter",
-        keyCode: 13,
-        which: 13,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-    urlInput.dispatchEvent(
-      new KeyboardEvent("keypress", {
-        key: "Enter",
-        code: "Enter",
-        keyCode: 13,
-        which: 13,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-    urlInput.dispatchEvent(
-      new KeyboardEvent("keyup", {
-        key: "Enter",
-        code: "Enter",
-        keyCode: 13,
-        which: 13,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
+
+    const xpathConfirm = await waitForXPath("//button/article", 30, 200);
+    if (xpathConfirm instanceof HTMLElement) {
+      xpathConfirm.click();
+    } else {
+      const fallbackButton =
+        findClickableByText(["插入", "Insert", "确认", "Confirm"]) ||
+        (urlInput.closest("[role='dialog']") || document).querySelector("button[role='button'], button");
+      if (!(fallbackButton instanceof HTMLElement)) {
+        throw new Error("Post confirm button not found.");
+      }
+      fallbackButton.click();
+    }
+
     await sleep(1000);
     removeAnchorToken(postAnchor.token);
   }
@@ -993,6 +1023,6 @@ function buildBrowserPublishScript(html: string, markdown: string, items: Publis
     console.log("X publish script finished.");
   }
 
-  run().catch((error) => console.error("X publish script failed:", error));
-})();`;
+  await run().catch((error) => console.error("X publish script failed:", error));
+}`;
 }

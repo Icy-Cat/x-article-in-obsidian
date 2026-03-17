@@ -2,6 +2,7 @@ import { Plugin, WorkspaceLeaf } from "obsidian";
 import {
 	COPY_PUBLISH_SCRIPT_COMMAND_ID,
 	OPEN_PREVIEW_COMMAND_ID,
+	PUBLISH_VIA_MCP_COMMAND_ID,
 	REFRESH_PREVIEW_COMMAND_ID,
 	VIEW_TYPE_X_ARTICLE_PREVIEW,
 } from "./constants";
@@ -45,6 +46,16 @@ export default class XArticleInObsidianPlugin extends Plugin {
 			name: "Copy X publish script",
 			callback: () => {
 				void copyPublishScript(this);
+			},
+		});
+
+		this.addCommand({
+			id: PUBLISH_VIA_MCP_COMMAND_ID,
+			name: "Publish to X via browser MCP",
+			callback: () => {
+				void import("./commands/publishViaMcp").then(({ publishViaDetectedMcp }) =>
+					publishViaDetectedMcp(this),
+				);
 			},
 		});
 
