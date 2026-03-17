@@ -1004,6 +1004,7 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
   async function run() {
     await insertArticleHtml();
     await sleep(800);
+    let processedItems = 0;
 
     for (const item of payload.items) {
       const anchorInfo = await focusMarker(item.marker);
@@ -1022,13 +1023,18 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
         await insertImage(item, anchorInfo);
       }
 
+      processedItems += 1;
       await sleep(500);
     }
 
     removeResidualMarkers();
     console.log("X publish script finished.");
+    return { ok: true, processedItems, totalItems: payload.items.length };
   }
 
-  await run().catch((error) => console.error("X publish script failed:", error));
+  return await run().catch((error) => {
+    console.error("X publish script failed:", error);
+    throw error;
+  });
 }`;
 }
