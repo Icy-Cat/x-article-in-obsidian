@@ -38,6 +38,30 @@ const deleteCases = [
     marker: "MPH_MARKER_8",
     expected: "prefix  suffix",
   },
+  {
+    label: "numeric text 42 before marker is preserved",
+    input: "42\nMPH_MARKER_6",
+    marker: "MPH_MARKER_6",
+    expected: "42\n",
+  },
+  {
+    label: "full sentence before marker is preserved",
+    input: "Another paragraph with spaces.\nMPH_MARKER_12",
+    marker: "MPH_MARKER_12",
+    expected: "Another paragraph with spaces.\n",
+  },
+  {
+    label: "numeric text 88 before marker is preserved",
+    input: "88\nMPH_MARKER_13",
+    marker: "MPH_MARKER_13",
+    expected: "88\n",
+  },
+  {
+    label: "random text block before marker is preserved",
+    input: "Random text block C.\nMPH_MARKER_14",
+    marker: "MPH_MARKER_14",
+    expected: "Random text block C.\n",
+  },
 ];
 
 for (const testCase of deleteCases) {
@@ -63,6 +87,16 @@ const cleanupCases = [
     label: "cleanup removes standalone inline marker only",
     input: "foo MPH_MARKER_7 bar",
     expected: "foo bar",
+  },
+  {
+    label: "cleanup keeps full sentence before marker from sample",
+    input: "Another paragraph with spaces.\nMPH_MARKER_12",
+    expected: "Another paragraph with spaces.\n",
+  },
+  {
+    label: "cleanup keeps random text block before marker from sample",
+    input: "Random text block C.\nMPH_MARKER_14",
+    expected: "Random text block C.\n",
   },
 ];
 

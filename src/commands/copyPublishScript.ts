@@ -485,6 +485,24 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     return null;
   }
 
+  function deleteMarkerFromTextNode(node, marker, offset) {
+    const text = node.textContent || "";
+    const markerOffset = typeof offset === "number" ? offset : text.indexOf(marker);
+    if (markerOffset < 0) {
+      return false;
+    }
+
+    node.textContent = text.slice(0, markerOffset) + text.slice(markerOffset + marker.length);
+    return true;
+  }
+
+  function insertTokenIntoTextNode(node, token, offset) {
+    const text = node.textContent || "";
+    const insertOffset = Math.max(0, Math.min(offset, text.length));
+    node.textContent = text.slice(0, insertOffset) + token + text.slice(insertOffset);
+    return true;
+  }
+
   function clickAt(rect) {
     const x = rect.left + Math.min(rect.width, 8);
     const y = rect.top + rect.height / 2;
@@ -557,11 +575,12 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     selection?.addRange(range);
     await sleep(50);
 
-    document.execCommand("delete");
-    await sleep(100);
-    await restoreCaretAtRect(rect);
+    deleteMarkerFromTextNode(markerInfo.node, marker, markerInfo.offset);
+    const anchorToken = "MPH_TARGET_" + Math.random().toString(36).slice(2, 10);
+    insertTokenIntoTextNode(markerInfo.node, anchorToken, markerInfo.offset);
+    setCaretAfterToken(anchorToken);
     await sleep(150);
-    return { rect, marker };
+    return { rect: getRectAfterToken(anchorToken) || rect, marker, token: anchorToken };
   }
 
   function insertAnchorToken(token) {
@@ -609,8 +628,7 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     const found = findAnchorToken(token);
     if (!found) return false;
 
-    const text = found.node.textContent || "";
-    found.node.textContent = text.slice(0, found.offset) + text.slice(found.offset + token.length);
+    deleteMarkerFromTextNode(found.node, token, found.offset);
     removeEmptyBlock(found.node.parentElement?.closest("[data-block='true']"));
     return true;
   }
@@ -697,7 +715,11 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
   }
 
   async function createUploadAnchor(anchorInfo, prefix) {
-    await restoreCaretAtRect(anchorInfo.rect);
+    if (anchorInfo?.token) {
+      setCaretAfterToken(anchorInfo.token);
+    } else {
+      await restoreCaretAtRect(anchorInfo.rect);
+    }
     await sleep(30);
     const token = prefix + "_" + Math.random().toString(36).slice(2, 10);
     insertAnchorToken(token);
@@ -712,6 +734,9 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     range.setStart(located.node, located.offset + token.length);
     range.collapse(true);
     const rect = range.getBoundingClientRect();
+    if (anchorInfo?.token) {
+      removeAnchorToken(anchorInfo.token);
+    }
     await clickAnchorToken(token);
     return { token, rect };
   }
