@@ -31,9 +31,9 @@ export async function copyPublishScript(plugin: XArticleInObsidianPlugin): Promi
 	try {
 		const script = await buildPublishScriptFromActiveNote(plugin);
 		await navigator.clipboard.writeText(script);
-		new Notice("Copied X publish script to clipboard.");
+		new Notice(plugin.t("notice.copyScriptSuccess"));
 	} catch (error) {
-		const message = error instanceof Error ? error.message : "Failed to build publish script.";
+		const message = error instanceof Error ? error.message : plugin.t("error.buildPublishScriptFailed");
 		new Notice(message);
 	}
 }
@@ -57,7 +57,7 @@ async function buildPublishPayloadFromActiveNote(
 ): Promise<{ html: string; markdown: string; items: PublishItem[] }> {
 	const markdownView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
 	if (!markdownView?.file) {
-		throw new Error("Open a Markdown note first.");
+		throw new Error(plugin.t("error.openMarkdownFirst"));
 	}
 
 	return buildPublishPayload(plugin, markdownView.file, markdownView.editor.getValue());

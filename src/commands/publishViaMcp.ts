@@ -41,7 +41,7 @@ const REQUIRED_PLAYWRIGHT_TOOLS = ["browser_navigate", "browser_wait_for", "brow
 
 export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): Promise<void> {
 	if (!Platform.isDesktopApp) {
-		new Notice("Playwright publishing is desktop only.");
+		new Notice(plugin.t("notice.publishDesktopOnly"));
 		return;
 	}
 
@@ -49,7 +49,7 @@ export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): P
 		const functionSource = await buildPublishFunctionFromActiveNote(plugin);
 		const runtime = await detectPlaywrightRuntime();
 		if (!runtime) {
-			new Notice("No browser bridge detected. Configure it first.");
+			new Notice(plugin.t("notice.noBrowserBridge"));
 			return;
 		}
 
@@ -103,9 +103,9 @@ export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): P
 			await client.close();
 		}
 
-		new Notice(`Published to X via Playwright MCP (${runtime.source}).`);
+		new Notice(plugin.t("notice.publishSuccess", { source: runtime.source }));
 	} catch (error) {
-		const message = normalizeMcpErrorMessage(error);
+		const message = normalizeMcpErrorMessage(error, plugin);
 		new Notice(message);
 	}
 }
@@ -781,15 +781,15 @@ class StdioMcpClient {
 	}
 }
 
-function normalizeMcpErrorMessage(error: unknown): string {
+function normalizeMcpErrorMessage(error: unknown, plugin: XArticleInObsidianPlugin): string {
 	if (!(error instanceof Error)) {
-		return "MCP publish failed.";
+		return plugin.t("notice.publishFailed");
 	}
 	if ("code" in error && error.code === "EPIPE") {
-		return "Playwright MCP disconnected before initialization completed. Confirm Chrome or Edge is open and the Playwright MCP Bridge extension is connected.";
+		return plugin.t("notice.playwrightDisconnected");
 	}
 	if (error.message.includes("EPIPE")) {
-		return "Playwright MCP disconnected before initialization completed. Confirm Chrome or Edge is open and the Playwright MCP Bridge extension is connected.";
+		return plugin.t("notice.playwrightDisconnected");
 	}
 	return error.message;
 }

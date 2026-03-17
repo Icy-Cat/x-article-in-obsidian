@@ -1,3 +1,5 @@
+import type XArticleInObsidianPlugin from "./main";
+
 const X_POST_URL_PATTERN =
 	/^https?:\/\/(?:www\.)?(?:x\.com|twitter\.com)\/([^/]+)\/status\/(\d+)(?:[/?#].*)?$/i;
 const X_WIDGETS_SCRIPT_URL = "https://platform.twitter.com/widgets.js";
@@ -34,10 +36,14 @@ export function collectPostEmbedCache(container: HTMLElement): PostEmbedCache {
 	return cache;
 }
 
-export function enhanceArticlePreview(container: HTMLElement, postEmbedCache?: PostEmbedCache): void {
-	enhanceCodeBlocks(container);
+export function enhanceArticlePreview(
+	container: HTMLElement,
+	plugin: XArticleInObsidianPlugin,
+	postEmbedCache?: PostEmbedCache,
+): void {
+	enhanceCodeBlocks(container, plugin);
 	enhanceStandaloneImages(container);
-	enhancePostLinks(container, postEmbedCache);
+	enhancePostLinks(container, plugin, postEmbedCache);
 	enhanceExternalLinks(container);
 }
 
@@ -53,7 +59,7 @@ function applySvgInlineStyles(element: SVGElement, styles: Record<string, string
 	});
 }
 
-function enhanceCodeBlocks(container: HTMLElement): void {
+function enhanceCodeBlocks(container: HTMLElement, plugin: XArticleInObsidianPlugin): void {
 	container.querySelectorAll("pre > code").forEach((codeEl) => {
 		if (!(codeEl instanceof HTMLElement)) {
 			return;
@@ -140,8 +146,8 @@ function enhanceCodeBlocks(container: HTMLElement): void {
 		const copyButtonEl = document.createElement("button");
 		copyButtonEl.type = "button";
 		copyButtonEl.className = "x-article-code-copy";
-		copyButtonEl.setAttribute("aria-label", "Copy code block");
-		copyButtonEl.setAttribute("title", "Copy code block");
+		copyButtonEl.setAttribute("aria-label", plugin.t("render.copyCodeBlock"));
+		copyButtonEl.setAttribute("title", plugin.t("render.copyCodeBlock"));
 		applyInlineStyles(copyButtonEl, {
 			display: "block",
 			padding: "0",
@@ -292,7 +298,11 @@ function enhanceStandaloneImages(container: HTMLElement): void {
 	});
 }
 
-function enhancePostLinks(container: HTMLElement, postEmbedCache?: PostEmbedCache): void {
+function enhancePostLinks(
+	container: HTMLElement,
+	plugin: XArticleInObsidianPlugin,
+	postEmbedCache?: PostEmbedCache,
+): void {
 	container.querySelectorAll("a").forEach((anchorEl) => {
 		if (!(anchorEl instanceof HTMLAnchorElement)) {
 			return;
@@ -331,7 +341,7 @@ function enhancePostLinks(container: HTMLElement, postEmbedCache?: PostEmbedCach
 		embedEl.dataset.postUrl = anchorEl.href;
 		const loadingEl = document.createElement("div");
 		loadingEl.className = "x-post-embed__loading";
-		loadingEl.textContent = "Loading post preview...";
+		loadingEl.textContent = plugin.t("render.loadingPostPreview");
 		embedEl.appendChild(loadingEl);
 		paragraphShell.replaceWith(embedEl);
 
@@ -342,7 +352,7 @@ function enhancePostLinks(container: HTMLElement, postEmbedCache?: PostEmbedCach
 				error: error instanceof Error ? error.message : String(error),
 			});
 			embedEl.empty();
-			embedEl.replaceWith(createFallbackPostCard(anchorEl.href, handle, statusId));
+			embedEl.replaceWith(createFallbackPostCard(plugin, anchorEl.href, handle, statusId));
 		});
 	});
 }
@@ -490,7 +500,12 @@ async function loadTwitterWidgets(): Promise<TwitterWidgets | null> {
 	return widgetsLoader;
 }
 
-function createFallbackPostCard(url: string, handle: string, statusId: string): HTMLElement {
+function createFallbackPostCard(
+	plugin: XArticleInObsidianPlugin,
+	url: string,
+	handle: string,
+	statusId: string,
+): HTMLElement {
 	const cardEl = document.createElement("article");
 	cardEl.className = "x-post-card";
 	cardEl.dataset.postUrl = url;
@@ -519,7 +534,7 @@ function createFallbackPostCard(url: string, handle: string, statusId: string): 
 
 	const bodyEl = document.createElement("div");
 	bodyEl.className = "x-post-card__body";
-	bodyEl.textContent = "Open the original post on X to view the live embed content.";
+	bodyEl.textContent = plugin.t("render.fallbackPostBody");
 	cardEl.appendChild(bodyEl);
 
 	const footerEl = document.createElement("div");
@@ -528,7 +543,7 @@ function createFallbackPostCard(url: string, handle: string, statusId: string): 
 
 	const linkEl = document.createElement("a");
 	linkEl.className = "x-post-card__link";
-	linkEl.textContent = "View post on X";
+	linkEl.textContent = plugin.t("render.fallbackPostLink");
 	linkEl.href = url;
 	linkEl.target = "_blank";
 	linkEl.rel = "noopener noreferrer";
@@ -536,7 +551,7 @@ function createFallbackPostCard(url: string, handle: string, statusId: string): 
 
 	const idEl = document.createElement("span");
 	idEl.className = "x-post-card__id";
-	idEl.textContent = `Post ID ${statusId}`;
+	idEl.textContent = plugin.t("render.fallbackPostId", { statusId });
 	footerEl.appendChild(idEl);
 
 	return cardEl;

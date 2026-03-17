@@ -42,7 +42,7 @@ export class XArticlePreviewView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "X article preview";
+		return this.plugin.t("view.title");
 	}
 
 	getIcon(): string {
@@ -60,7 +60,7 @@ export class XArticlePreviewView extends ItemView {
 		this.heroCoverEl = this.heroEl.createDiv({ cls: "x-article-hero__cover" });
 		const heroBadgeEl = this.heroCoverEl.createDiv({ cls: "x-article-hero__badge" });
 		this.heroLabelEl = heroBadgeEl.createDiv({ cls: "x-article-hero__label" });
-		this.heroLabelEl.setText("Article");
+		this.heroLabelEl.setText(this.plugin.t("view.heroBadge"));
 
 		const heroBodyEl = this.heroEl.createDiv({ cls: "x-article-hero__body" });
 		this.heroTitleEl = heroBodyEl.createDiv({ cls: "x-article-hero__title" });
@@ -68,7 +68,7 @@ export class XArticlePreviewView extends ItemView {
 
 		this.refreshButtonEl = chromeEl.createEl("button", {
 			cls: "x-article-refresh",
-			text: "Refresh",
+			text: this.plugin.t("view.refresh"),
 		});
 		this.refreshButtonEl.addEventListener("click", () => {
 			void this.refresh();
@@ -133,7 +133,7 @@ export class XArticlePreviewView extends ItemView {
 		this.refreshButtonEl.disabled = true;
 
 		if (!context) {
-			this.renderEmptyState("Open a Markdown note to preview it as an X article.");
+			this.renderEmptyState(this.plugin.t("view.empty.body"));
 			this.refreshButtonEl.disabled = false;
 			return;
 		}
@@ -149,7 +149,7 @@ export class XArticlePreviewView extends ItemView {
 			);
 
 			if (this.plugin.settings.showDraftNotice) {
-				this.noticeEl.setText("Only you can see this unpublished article preview.");
+				this.noticeEl.setText(this.plugin.t("view.draftNotice"));
 				this.noticeEl.removeClass("is-hidden");
 			} else {
 				this.noticeEl.addClass("is-hidden");
@@ -161,13 +161,13 @@ export class XArticlePreviewView extends ItemView {
 			}
 
 			remapArticleDom(this.articleEl);
-			enhanceArticlePreview(this.articleEl, postEmbedCache);
+			enhanceArticlePreview(this.articleEl, this.plugin, postEmbedCache);
 			this.renderHeroCard(context.file.basename);
 			this.syncToSourceScroll();
 		} catch (error) {
 			console.error("Failed to render X article preview", error);
-			this.renderEmptyState("The preview could not be rendered.");
-			new Notice("X article preview failed to render.");
+			this.renderEmptyState(this.plugin.t("view.renderFailed"));
+			new Notice(this.plugin.t("notice.renderFailed"));
 		} finally {
 			this.refreshButtonEl.disabled = false;
 		}
@@ -187,7 +187,10 @@ export class XArticlePreviewView extends ItemView {
 	}
 
 	private renderEmptyState(message: string): void {
-		this.renderHeroPlaceholder("No note selected", "Open a Markdown note to preview it as an X article.");
+		this.renderHeroPlaceholder(
+			this.plugin.t("view.empty.title"),
+			this.plugin.t("view.empty.summary"),
+		);
 		this.noticeEl.addClass("is-hidden");
 		this.articleEl.empty();
 		this.articleEl.addClass("is-empty");
@@ -200,7 +203,7 @@ export class XArticlePreviewView extends ItemView {
 			this.articleEl.querySelector(".longform-header-two")?.textContent?.trim() ||
 			fallbackTitle;
 		const summary =
-			this.extractHeroSummary() || "Previewing the current note with an X article layout.";
+			this.extractHeroSummary() || this.plugin.t("view.defaultSummary");
 		const coverSrc =
 			this.articleEl.querySelector<HTMLImageElement>("img")?.getAttribute("src") || null;
 

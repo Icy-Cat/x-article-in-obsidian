@@ -7,6 +7,7 @@ import {
 	VIEW_TYPE_X_ARTICLE_PREVIEW,
 } from "./constants";
 import { copyPublishScript } from "./commands/copyPublishScript";
+import { translate, type TranslationKey } from "./i18n";
 import { DEFAULT_SETTINGS, XArticlePreviewSettings, XArticleSettingTab } from "./settings";
 import { XArticlePreviewView } from "./views/xArticlePreviewView";
 
@@ -21,13 +22,13 @@ export default class XArticleInObsidianPlugin extends Plugin {
 			(leaf) => new XArticlePreviewView(leaf, this),
 		);
 
-		this.addRibbonIcon("newspaper", "Open X article preview", () => {
+		this.addRibbonIcon("newspaper", this.t("ribbon.openPreview"), () => {
 			void this.activatePreviewView();
 		});
 
 		this.addCommand({
 			id: OPEN_PREVIEW_COMMAND_ID,
-			name: "Open preview",
+			name: this.t("command.openPreview"),
 			callback: () => {
 				void this.activatePreviewView();
 			},
@@ -35,7 +36,7 @@ export default class XArticleInObsidianPlugin extends Plugin {
 
 		this.addCommand({
 			id: REFRESH_PREVIEW_COMMAND_ID,
-			name: "Refresh preview",
+			name: this.t("command.refreshPreview"),
 			callback: () => {
 				void this.refreshPreviewViews();
 			},
@@ -43,7 +44,7 @@ export default class XArticleInObsidianPlugin extends Plugin {
 
 		this.addCommand({
 			id: COPY_PUBLISH_SCRIPT_COMMAND_ID,
-			name: "Copy X publish script",
+			name: this.t("command.copyPublishScript"),
 			callback: () => {
 				void copyPublishScript(this);
 			},
@@ -51,7 +52,7 @@ export default class XArticleInObsidianPlugin extends Plugin {
 
 		this.addCommand({
 			id: PUBLISH_VIA_MCP_COMMAND_ID,
-			name: "Publish article through browser",
+			name: this.t("command.publishViaMcp"),
 			callback: () => {
 				void import("./commands/publishViaMcp").then(({ publishViaDetectedMcp }) =>
 					publishViaDetectedMcp(this),
@@ -74,6 +75,10 @@ export default class XArticleInObsidianPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
+	}
+
+	t(key: TranslationKey, vars?: Record<string, string | number>): string {
+		return translate(this.settings.locale, key, vars);
 	}
 
 	async activatePreviewView(): Promise<void> {
