@@ -35,6 +35,8 @@ type ChildStdoutChunk = string | Uint8Array;
 const PLAYWRIGHT_SERVER_NAME = "playwright";
 const PLAYWRIGHT_TOKEN_ENV = "PLAYWRIGHT_MCP_EXTENSION_TOKEN";
 const PLAYWRIGHT_EXTENSION_ID = "mmlmfjhmonkocbjadbfplnigmagldckm";
+const MCP_REQUEST_TIMEOUT_MS = 5_000;
+const REQUIRED_PLAYWRIGHT_TOOLS = ["browser_navigate", "browser_wait_for", "browser_evaluate"] as const;
 
 export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): Promise<void> {
 	if (!Platform.isDesktopApp) {
@@ -52,6 +54,7 @@ export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): P
 
 		const client = await StdioMcpClient.connect(runtime);
 		try {
+			await client.assertToolsAvailable(REQUIRED_PLAYWRIGHT_TOOLS);
 			await client.callTool("browser_navigate", { url: "https://x.com/compose/articles" });
 			await client.callTool("browser_wait_for", { time: 2 });
 			await client.callTool("browser_evaluate", {
@@ -90,7 +93,7 @@ export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): P
 
 		new Notice(`Published to X via Playwright MCP (${runtime.source}).`);
 	} catch (error) {
-		const message = error instanceof Error ? error.message : "MCP publish failed.";
+		const message = normalizeMcpErrorMessage(error);
 		new Notice(message);
 	}
 }
@@ -284,7 +287,7 @@ function findPlaywrightRuntime(
 		if (!server) {
 			continue;
 		}
-		return {
+		return normalizeRuntimeConfig({
 			command: server.command,
 			args: server.args,
 			env: {
@@ -292,9 +295,151 @@ function findPlaywrightRuntime(
 				...(token ? { [PLAYWRIGHT_TOKEN_ENV]: token } : {}),
 			},
 			source: config.path,
-		};
+		});
 	}
 	return null;
+}
+
+function normalizeRuntimeConfig(runtime: McpRuntimeConfig): McpRuntimeConfig {
+	const normalized = wrapShellScriptRuntime(resolveExecutablePath(unwrapShellCommand(runtime)));
+	const commandName = normalized.command.toLowerCase();
+	if (!commandName.endsWith("npx") && !commandName.endsWith("npx.cmd")) {
+		return normalized;
+	}
+
+	if (normalized.args.includes("-y") || normalized.args.includes("--yes")) {
+		return normalized;
+	}
+
+	return {
+		...normalized,
+		args: ["-y", ...normalized.args],
+	};
+}
+
+function unwrapShellCommand(runtime: McpRuntimeConfig): McpRuntimeConfig {
+	const command = runtime.command.toLowerCase();
+	if (command !== "cmd" && command !== "cmd.exe") {
+		return runtime;
+	}
+
+	const args = [...runtime.args];
+	let cursor = 0;
+	while (cursor < args.length) {
+		const current = args[cursor]?.toLowerCase();
+		if (!current) {
+			cursor += 1;
+			continue;
+		}
+		if (current === "/c") {
+			const nextCommand = args[cursor + 1];
+			if (!nextCommand) {
+				return runtime;
+			}
+			return {
+				...runtime,
+				command: nextCommand,
+				args: args.slice(cursor + 2),
+			};
+		}
+		if (current === "/s") {
+			cursor += 1;
+			continue;
+		}
+		break;
+	}
+
+	return runtime;
+}
+
+function resolveExecutablePath(runtime: McpRuntimeConfig): McpRuntimeConfig {
+	const req = getNodeRequire();
+	const path = req("node:path") as typeof import("node:path");
+	const os = req("node:os") as typeof import("node:os");
+	const fs = req("node:fs") as typeof import("node:fs");
+	const processRef = req("node:process") as typeof import("node:process");
+
+	const candidates = buildExecutableCandidates(runtime.command, path, os, processRef);
+	for (const candidate of candidates) {
+		if (!path.isAbsolute(candidate)) {
+			continue;
+		}
+		if (fs.existsSync(candidate)) {
+			return {
+				...runtime,
+				command: candidate,
+			};
+		}
+	}
+
+	return runtime;
+}
+
+function buildExecutableCandidates(
+	command: string,
+	path: typeof import("node:path"),
+	os: typeof import("node:os"),
+	processRef: typeof import("node:process"),
+): string[] {
+	const candidates: string[] = [];
+	const lower = command.toLowerCase();
+	const isWindows = processRef.platform === "win32";
+	const pathEntries = (processRef.env.PATH ?? "").split(path.delimiter).filter((entry) => entry.length > 0);
+	const hasExtension = /\.[a-z0-9]+$/i.test(command);
+
+	if (path.isAbsolute(command)) {
+		candidates.push(command);
+		return candidates;
+	}
+
+	for (const entry of pathEntries) {
+		if (!hasExtension) {
+			if (isWindows) {
+				candidates.push(path.join(entry, `${command}.cmd`));
+				candidates.push(path.join(entry, `${command}.exe`));
+				candidates.push(path.join(entry, `${command}.bat`));
+				candidates.push(path.join(entry, command));
+			} else {
+				candidates.push(path.join(entry, command));
+			}
+		} else {
+			candidates.push(path.join(entry, command));
+		}
+	}
+
+	if (lower === "npx" || lower === "npx.cmd") {
+		const appData = processRef.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming");
+		candidates.push(path.join(appData, "npm", "npx.cmd"));
+		if (!isWindows) {
+			candidates.push(path.join(appData, "npm", "npx"));
+		}
+	}
+
+	if (lower === "node" || lower === "node.exe") {
+		const programFiles = processRef.env.ProgramFiles ?? "C:\\Program Files";
+		candidates.push(path.join(programFiles, "nodejs", "node.exe"));
+	}
+
+	return Array.from(new Set(candidates));
+}
+
+function wrapShellScriptRuntime(runtime: McpRuntimeConfig): McpRuntimeConfig {
+	const req = getNodeRequire();
+	const processRef = req("node:process") as typeof import("node:process");
+	if (processRef.platform !== "win32") {
+		return runtime;
+	}
+
+	const lower = runtime.command.toLowerCase();
+	if (!lower.endsWith(".cmd") && !lower.endsWith(".bat")) {
+		return runtime;
+	}
+
+	return {
+		...runtime,
+		command: processRef.env.ComSpec || "C:\\Windows\\System32\\cmd.exe",
+		args: ["/d", "/s", "/c", runtime.command, ...runtime.args],
+	};
 }
 
 function discoverPlaywrightExtensionToken(
@@ -396,6 +541,12 @@ class StdioMcpClient {
 	private nextId = 1;
 	private pending = new Map<number, { resolve: (value: JsonRpcResponse) => void; reject: (reason?: unknown) => void }>();
 	private buffer = "";
+	private readonly stderrChunks: string[] = [];
+	private closed = false;
+	private exitCode: number | null = null;
+	private signal: NodeJS.Signals | null = null;
+	private spawnError: Error | null = null;
+	private stdinError: Error | null = null;
 
 	private constructor(
 		private readonly proc: import("node:child_process").ChildProcessWithoutNullStreams,
@@ -414,45 +565,36 @@ class StdioMcpClient {
 		});
 		const client = new StdioMcpClient(proc);
 		client.attach();
-		await client.request("initialize", {
+		await client.request(
+			"initialize",
+			{
 			protocolVersion: "2024-11-05",
 			capabilities: {},
 			clientInfo: { name: "x-article-in-obsidian", version: "1.0.2" },
-		});
+			},
+			MCP_REQUEST_TIMEOUT_MS,
+		);
 		client.writeFrame({ jsonrpc: "2.0", method: "notifications/initialized" });
 		return client;
 	}
 
 	private attach(): void {
-		const req = getNodeRequire();
-		const bufferModule = req("node:buffer") as typeof import("node:buffer");
 		this.proc.stdout.on("data", (chunk: ChildStdoutChunk) => {
+			const req = getNodeRequire();
+			const bufferModule = req("node:buffer") as typeof import("node:buffer");
 			const nextChunk =
 				typeof chunk === "string"
 					? chunk
 					: bufferModule.Buffer.from(chunk).toString("utf8");
 			this.buffer += nextChunk;
-			while (true) {
-				const headerEnd = this.buffer.indexOf("\r\n\r\n");
-				if (headerEnd === -1) {
-					break;
+			const lines = this.buffer.split("\n");
+			this.buffer = lines.pop() ?? "";
+			for (const line of lines) {
+				if (!line.trim()) {
+					continue;
 				}
-				const header = this.buffer.slice(0, headerEnd);
-				const match = header.match(/Content-Length:\s*(\d+)/i);
-				if (!match?.[1]) {
-					this.buffer = "";
-					break;
-				}
-				const contentLength = Number(match[1]);
-				const bodyStart = headerEnd + 4;
-				const messageEnd = bodyStart + contentLength;
-				if (this.buffer.length < messageEnd) {
-					break;
-				}
-				const body = this.buffer.slice(bodyStart, messageEnd);
-				this.buffer = this.buffer.slice(messageEnd);
 				try {
-					const response = JSON.parse(body) as JsonRpcResponse;
+					const response = JSON.parse(line) as JsonRpcResponse;
 					if (typeof response.id !== "number") {
 						continue;
 					}
@@ -468,38 +610,102 @@ class StdioMcpClient {
 			}
 		});
 
-		this.proc.on("close", () => {
+		this.proc.stderr.on("data", (chunk: ChildStdoutChunk) => {
+			const req = getNodeRequire();
+			const bufferModule = req("node:buffer") as typeof import("node:buffer");
+			const nextChunk =
+				typeof chunk === "string"
+					? chunk
+					: bufferModule.Buffer.from(chunk).toString("utf8");
+			this.stderrChunks.push(nextChunk);
+			if (this.stderrChunks.length > 20) {
+				this.stderrChunks.shift();
+			}
+		});
+
+		this.proc.on("error", (error) => {
+			this.spawnError = error instanceof Error ? error : new Error(String(error));
+		});
+
+		this.proc.stdin.on("error", (error) => {
+			this.stdinError = error instanceof Error ? error : new Error(String(error));
+		});
+
+		this.proc.on("close", (code, signal) => {
+			this.closed = true;
+			this.exitCode = code;
+			this.signal = signal;
+			const detail = this.getProcessErrorDetail();
 			for (const pending of this.pending.values()) {
-				pending.reject(new Error("MCP process closed."));
+				pending.reject(new Error(detail));
 			}
 			this.pending.clear();
 		});
 	}
 
 	async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
-		const response = await this.request("tools/call", {
-			name,
-			arguments: args,
-		});
+		const response = await this.request(
+			"tools/call",
+			{
+				name,
+				arguments: args,
+			},
+			MCP_REQUEST_TIMEOUT_MS,
+		);
 		if (response.error?.message) {
 			throw new Error(response.error.message);
 		}
 		return response.result;
 	}
 
-	private request(method: string, params: Record<string, unknown>): Promise<JsonRpcResponse> {
+	async assertToolsAvailable(toolNames: readonly string[]): Promise<void> {
+		const response = await this.request("tools/list", {}, MCP_REQUEST_TIMEOUT_MS);
+		if (response.error?.message) {
+			throw new Error(response.error.message);
+		}
+		const result = response.result as { tools?: Array<{ name?: string }> } | undefined;
+		const available = new Set((result?.tools ?? []).map((tool) => tool.name).filter((name): name is string => Boolean(name)));
+		const missing = toolNames.filter((name) => !available.has(name));
+		if (missing.length > 0) {
+			throw new Error(`Playwright MCP is missing required tools: ${missing.join(", ")}.`);
+		}
+	}
+
+	private request(
+		method: string,
+		params: Record<string, unknown>,
+		timeoutMs: number,
+	): Promise<JsonRpcResponse> {
 		const id = this.nextId++;
 		return new Promise<JsonRpcResponse>((resolve, reject) => {
+			const timer = window.setTimeout(() => {
+				this.pending.delete(id);
+				reject(new Error(`${method} timed out after ${Math.round(timeoutMs / 1000)}s. Ensure the Playwright MCP Bridge extension is connected to a running Chrome/Edge window.`));
+			}, timeoutMs);
 			this.pending.set(id, { resolve, reject });
 			this.writeFrame(
 				{ jsonrpc: "2.0", id, method, params },
 				(error) => {
 					if (error) {
+						window.clearTimeout(timer);
 						this.pending.delete(id);
 						reject(error);
 					}
 				},
 			);
+			const pending = this.pending.get(id);
+			if (pending) {
+				this.pending.set(id, {
+					resolve: (value) => {
+						window.clearTimeout(timer);
+						resolve(value);
+					},
+					reject: (reason) => {
+						window.clearTimeout(timer);
+						reject(reason);
+					},
+				});
+			}
 		});
 	}
 
@@ -507,16 +713,73 @@ class StdioMcpClient {
 		message: Record<string, unknown>,
 		callback?: (error: Error | null | undefined) => void,
 	): void {
-		const req = getNodeRequire();
-		const bufferModule = req("node:buffer") as typeof import("node:buffer");
-		const body = JSON.stringify(message);
-		const header = `Content-Length: ${bufferModule.Buffer.byteLength(body, "utf8")}\r\n\r\n`;
-		this.proc.stdin.write(`${header}${body}`, callback);
+		if (this.closed || this.proc.stdin.destroyed || !this.proc.stdin.writable) {
+			callback?.(new Error(this.getProcessErrorDetail()));
+			return;
+		}
+		const body = JSON.stringify(message) + "\n";
+		try {
+			this.proc.stdin.write(body, (error) => {
+				if (!error) {
+					callback?.(undefined);
+					return;
+				}
+				callback?.(this.normalizeTransportError(error));
+			});
+		} catch (error) {
+			callback?.(this.normalizeTransportError(error));
+		}
 	}
 
 	async close(): Promise<void> {
 		this.proc.kill();
 	}
+
+	private getProcessErrorDetail(): string {
+		const stderr = this.stderrChunks.join("").trim();
+		const processBits: string[] = [];
+		if (this.spawnError?.message) {
+			processBits.push(this.spawnError.message);
+		}
+		if (this.stdinError?.message) {
+			processBits.push(this.stdinError.message);
+		}
+		if (this.exitCode !== null) {
+			processBits.push(`exit code ${this.exitCode}`);
+		}
+		if (this.signal) {
+			processBits.push(`signal ${this.signal}`);
+		}
+		const suffix = [...processBits, stderr].filter((part) => part.length > 0).join(" ");
+		if (suffix.length > 0) {
+			return `MCP process closed. ${suffix}`;
+		}
+		return "MCP process closed.";
+	}
+
+	private normalizeTransportError(error: unknown): Error {
+		const normalized = error instanceof Error ? error : new Error(String(error));
+		if ("code" in normalized && normalized.code === "EPIPE") {
+			return new Error(this.getProcessErrorDetail());
+		}
+		if (normalized.message.includes("EPIPE")) {
+			return new Error(this.getProcessErrorDetail());
+		}
+		return normalized;
+	}
+}
+
+function normalizeMcpErrorMessage(error: unknown): string {
+	if (!(error instanceof Error)) {
+		return "MCP publish failed.";
+	}
+	if ("code" in error && error.code === "EPIPE") {
+		return "Playwright MCP disconnected before initialization completed. Confirm Chrome or Edge is open and the Playwright MCP Bridge extension is connected.";
+	}
+	if (error.message.includes("EPIPE")) {
+		return "Playwright MCP disconnected before initialization completed. Confirm Chrome or Edge is open and the Playwright MCP Bridge extension is connected.";
+	}
+	return error.message;
 }
 
 function getNodeRequire(): NodeRequireLike {
