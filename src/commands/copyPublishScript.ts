@@ -496,13 +496,6 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     return true;
   }
 
-  function insertTokenIntoTextNode(node, token, offset) {
-    const text = node.textContent || "";
-    const insertOffset = Math.max(0, Math.min(offset, text.length));
-    node.textContent = text.slice(0, insertOffset) + token + text.slice(insertOffset);
-    return true;
-  }
-
   function clickAt(rect) {
     const x = rect.left + Math.min(rect.width, 8);
     const y = rect.top + rect.height / 2;
@@ -574,38 +567,8 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     selection?.removeAllRanges();
     selection?.addRange(range);
     await sleep(50);
-
-    deleteMarkerFromTextNode(markerInfo.node, marker, markerInfo.offset);
-    const anchorToken = "MPH_TARGET_" + Math.random().toString(36).slice(2, 10);
-    insertTokenIntoTextNode(markerInfo.node, anchorToken, markerInfo.offset);
-    setCaretAfterToken(anchorToken);
     await sleep(150);
-    return { rect: getRectAfterToken(anchorToken) || rect, marker, token: anchorToken };
-  }
-
-  function insertAnchorToken(token) {
-    const editor = findEditor();
-    if (!editor) {
-      throw new Error("Editor not found.");
-    }
-
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) {
-      throw new Error("Selection not available for anchor insertion.");
-    }
-
-    const range = selection.getRangeAt(0);
-    range.deleteContents();
-    const textNode = document.createTextNode(token);
-    range.insertNode(textNode);
-
-    const caretRange = document.createRange();
-    caretRange.setStart(textNode, textNode.textContent.length);
-    caretRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(caretRange);
-
-    return textNode;
+    return { rect: getRectAfterToken(marker) || rect, marker, token: marker };
   }
 
   function findAnchorToken(token) {
@@ -712,33 +675,6 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     clickAt(rect);
     await sleep(60);
     return true;
-  }
-
-  async function createUploadAnchor(anchorInfo, prefix) {
-    if (anchorInfo?.token) {
-      setCaretAfterToken(anchorInfo.token);
-    } else {
-      await restoreCaretAtRect(anchorInfo.rect);
-    }
-    await sleep(30);
-    const token = prefix + "_" + Math.random().toString(36).slice(2, 10);
-    insertAnchorToken(token);
-    await sleep(50);
-    const located = findAnchorToken(token);
-    if (!located) {
-      throw new Error("Failed to create anchor token.");
-    }
-
-    setCaretAfterToken(token);
-    const range = document.createRange();
-    range.setStart(located.node, located.offset + token.length);
-    range.collapse(true);
-    const rect = range.getBoundingClientRect();
-    if (anchorInfo?.token) {
-      removeAnchorToken(anchorInfo.token);
-    }
-    await clickAnchorToken(token);
-    return { token, rect };
   }
 
   function normalizeText(value) {
@@ -883,8 +819,7 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
   }
 
   async function insertCodeBlock(item, anchorInfo) {
-    const codeAnchor = await createUploadAnchor(anchorInfo, "MPH_CODE_ANCHOR");
-    await openInsertMenu(["代码", "Code", "code"], codeAnchor);
+    await openInsertMenu(["代码", "Code", "code"], anchorInfo);
 
     const languageInput = await waitForSelector("input[name='programming-language-input'], input[data-testid='programming-language-input']");
     if (languageInput && item.language) {
@@ -965,12 +900,11 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
 
     submitButton.click();
     await sleep(800);
-    removeAnchorToken(codeAnchor.token);
+    removeAnchorToken(anchorInfo.token);
   }
 
   async function insertPost(item, anchorInfo) {
-    const postAnchor = await createUploadAnchor(anchorInfo, "MPH_POST_ANCHOR");
-    let urlInput = await openInsertPostDialog(postAnchor);
+    let urlInput = await openInsertPostDialog(anchorInfo);
     if (!(urlInput instanceof HTMLInputElement) && !(urlInput instanceof HTMLTextAreaElement)) {
       urlInput =
         document.querySelector("input[name='TweetByUrlInput']") ||
@@ -1002,7 +936,7 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     }
 
     await sleep(1000);
-    removeAnchorToken(postAnchor.token);
+    removeAnchorToken(anchorInfo.token);
   }
 
   function base64ToFile(base64, fileName, mimeType) {
@@ -1042,13 +976,12 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
   }
 
   async function insertImage(item, anchorInfo) {
-    const uploadAnchor = await createUploadAnchor(anchorInfo, "MPH_IMAGE_ANCHOR");
     try {
-      await openInsertMenu(["媒体", "Media", "media", "photo", "image"], uploadAnchor);
-      await clickAnchorToken(uploadAnchor.token);
+      await openInsertMenu(["媒体", "Media", "media", "photo", "image"], anchorInfo);
+      await clickAnchorToken(anchorInfo.token);
       await sleep(50);
-      const input = await waitForFileInput(uploadAnchor.rect);
-      await clickAnchorToken(uploadAnchor.token);
+      const input = await waitForFileInput(anchorInfo.rect);
+      await clickAnchorToken(anchorInfo.token);
       await sleep(50);
       const file = base64ToFile(item.base64, item.fileName, item.mimeType);
       const data = new DataTransfer();
@@ -1058,15 +991,14 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
       input.dispatchEvent(new Event("change", { bubbles: true }));
       await waitForMediaUpload(15000);
     } finally {
-      removeAnchorToken(uploadAnchor.token);
+      removeAnchorToken(anchorInfo.token);
     }
   }
 
   async function insertDivider(anchorInfo) {
-    const dividerAnchor = await createUploadAnchor(anchorInfo, "MPH_DIVIDER_ANCHOR");
-    await openInsertMenu(["分割线", "Divider", "divider", "separator", "horizontal rule"], dividerAnchor);
+    await openInsertMenu(["分割线", "Divider", "divider", "separator", "horizontal rule"], anchorInfo);
     await sleep(500);
-    removeAnchorToken(dividerAnchor.token);
+    removeAnchorToken(anchorInfo.token);
   }
 
   async function run() {
