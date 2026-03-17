@@ -36,6 +36,7 @@ const PLAYWRIGHT_SERVER_NAME = "playwright";
 const PLAYWRIGHT_TOKEN_ENV = "PLAYWRIGHT_MCP_EXTENSION_TOKEN";
 const PLAYWRIGHT_EXTENSION_ID = "mmlmfjhmonkocbjadbfplnigmagldckm";
 const MCP_REQUEST_TIMEOUT_MS = 5_000;
+const MCP_EVALUATE_TIMEOUT_MS = 180_000;
 const REQUIRED_PLAYWRIGHT_TOOLS = ["browser_navigate", "browser_wait_for", "browser_evaluate"] as const;
 
 export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): Promise<void> {
@@ -85,9 +86,13 @@ export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): P
 
 					throw new Error("Editor did not become ready after clicking create.");
 				}`),
-			});
+			}, MCP_EVALUATE_TIMEOUT_MS);
 			const publishResult = parsePlaywrightToolResult(
-				await client.callTool("browser_evaluate", { function: normalizeEvaluateSource(functionSource) }),
+				await client.callTool(
+					"browser_evaluate",
+					{ function: normalizeEvaluateSource(functionSource) },
+					MCP_EVALUATE_TIMEOUT_MS,
+				),
 			);
 			if (!isSuccessfulPublishResult(publishResult)) {
 				throw new Error(
@@ -650,14 +655,14 @@ class StdioMcpClient {
 		});
 	}
 
-	async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+	async callTool(name: string, args: Record<string, unknown>, timeoutMs = MCP_REQUEST_TIMEOUT_MS): Promise<unknown> {
 		const response = await this.request(
 			"tools/call",
 			{
 				name,
 				arguments: args,
 			},
-			MCP_REQUEST_TIMEOUT_MS,
+			timeoutMs,
 		);
 		if (response.error?.message) {
 			throw new Error(response.error.message);

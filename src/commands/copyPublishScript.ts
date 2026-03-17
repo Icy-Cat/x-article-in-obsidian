@@ -745,16 +745,51 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     return (value || "").replace(/\\s+/g, " ").trim().toLowerCase();
   }
 
-  function findClickableByText(labels) {
+  function isVisibleElement(node) {
+    if (!(node instanceof HTMLElement)) {
+      return false;
+    }
+
+    const style = window.getComputedStyle(node);
+    if (style.display === "none" || style.visibility === "hidden" || style.pointerEvents === "none") {
+      return false;
+    }
+
+    const rect = node.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
+  function measureDistanceToRect(node, targetRect) {
+    if (!(node instanceof HTMLElement) || !targetRect) {
+      return Number.POSITIVE_INFINITY;
+    }
+
+    const rect = node.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const targetX = targetRect.left + targetRect.width / 2;
+    const targetY = targetRect.top + targetRect.height / 2;
+    const dx = x - targetX;
+    const dy = y - targetY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function findClickableByText(labels, targetRect) {
     const textLabels = Array.isArray(labels) ? labels : [labels];
     const normalizedLabels = textLabels.map((label) => normalizeText(label));
-    const nodes = Array.from(document.querySelectorAll("button, [role='button'], [role='menuitem'], [role='option']"));
-    return (
-      nodes.find((node) => {
+    const nodes = Array.from(document.querySelectorAll("button, [role='button'], [role='menuitem'], [role='option']"))
+      .filter((node) => isVisibleElement(node))
+      .filter((node) => {
         const text = normalizeText(node.textContent || "");
         return normalizedLabels.some((label) => text === label || text.includes(label));
-      }) || null
-    );
+      });
+
+    if (nodes.length === 0) {
+      return null;
+    }
+
+    nodes.sort((left, right) => measureDistanceToRect(left, targetRect) - measureDistanceToRect(right, targetRect));
+    return nodes[0] || null;
   }
 
   function findByXPath(xpath) {
@@ -790,7 +825,7 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
       await restoreCaretAtRect(anchorInfo.rect);
     }
 
-    const insertButton = findClickableByText(["插入", "Insert", "insert"]);
+    const insertButton = findClickableByText(["插入", "Insert", "insert"], anchorInfo?.rect);
     if (!insertButton) {
       throw new Error("Insert button not found.");
     }
@@ -798,7 +833,7 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     insertButton.click();
     await sleep(300);
 
-    const option = findClickableByText(optionLabels);
+    const option = findClickableByText(optionLabels, anchorInfo?.rect);
     if (!option) {
       throw new Error("Insert menu option not found: " + optionLabels.join("/"));
     }
@@ -825,7 +860,7 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
       await restoreCaretAtRect(anchorInfo.rect);
     }
 
-    const insertButton = findClickableByText(["插入", "Insert", "insert"]);
+    const insertButton = findClickableByText(["插入", "Insert", "insert"], anchorInfo?.rect);
     if (!insertButton) {
       throw new Error("Insert button not found.");
     }
@@ -979,9 +1014,15 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     return new File([new Blob([bytes], { type: mimeType })], fileName, { type: mimeType });
   }
 
-  async function waitForFileInput() {
+  async function waitForFileInput(targetRect) {
     for (let attempt = 0; attempt < 20; attempt += 1) {
-      const input = document.querySelector("input[data-testid='fileInput'][type='file']");
+      const dialogs = Array.from(document.querySelectorAll("div[data-testid='sheetDialog']"))
+        .filter((node) => isVisibleElement(node));
+      const dialog =
+        dialogs.sort((left, right) => measureDistanceToRect(left, targetRect) - measureDistanceToRect(right, targetRect)).at(-1) ||
+        dialogs.at(-1) ||
+        null;
+      const input = dialog?.querySelector("input") || null;
       if (input) return input;
       await sleep(150);
     }
@@ -1002,20 +1043,23 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
 
   async function insertImage(item, anchorInfo) {
     const uploadAnchor = await createUploadAnchor(anchorInfo, "MPH_IMAGE_ANCHOR");
-    await openInsertMenu(["媒体", "Media", "media", "photo", "image"], uploadAnchor);
-    await clickAnchorToken(uploadAnchor.token);
-    await sleep(50);
-    const input = await waitForFileInput();
-    await clickAnchorToken(uploadAnchor.token);
-    await sleep(50);
-    const file = base64ToFile(item.base64, item.fileName, item.mimeType);
-    const data = new DataTransfer();
-    data.items.add(file);
-    input.files = data.files;
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-    await waitForMediaUpload(15000);
-    removeAnchorToken(uploadAnchor.token);
+    try {
+      await openInsertMenu(["媒体", "Media", "media", "photo", "image"], uploadAnchor);
+      await clickAnchorToken(uploadAnchor.token);
+      await sleep(50);
+      const input = await waitForFileInput(uploadAnchor.rect);
+      await clickAnchorToken(uploadAnchor.token);
+      await sleep(50);
+      const file = base64ToFile(item.base64, item.fileName, item.mimeType);
+      const data = new DataTransfer();
+      data.items.add(file);
+      input.files = data.files;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await waitForMediaUpload(15000);
+    } finally {
+      removeAnchorToken(uploadAnchor.token);
+    }
   }
 
   async function insertDivider(anchorInfo) {
