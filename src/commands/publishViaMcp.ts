@@ -28,13 +28,17 @@ type ParsedServerEntry = {
 	env: Record<string, string>;
 };
 
+type NodeRequireLike = (id: string) => unknown;
+type RequireContainer = typeof globalThis & { require?: NodeRequireLike };
+type ChildStdoutChunk = string | Uint8Array;
+
 const PLAYWRIGHT_SERVER_NAME = "playwright";
 const PLAYWRIGHT_TOKEN_ENV = "PLAYWRIGHT_MCP_EXTENSION_TOKEN";
 const PLAYWRIGHT_EXTENSION_ID = "mmlmfjhmonkocbjadbfplnigmagldckm";
 
 export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): Promise<void> {
 	if (!Platform.isDesktopApp) {
-		new Notice("Browser MCP publishing is desktop-only.");
+		new Notice("Playwright publishing is desktop only.");
 		return;
 	}
 
@@ -42,7 +46,7 @@ export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): P
 		const functionSource = await buildPublishFunctionFromActiveNote(plugin);
 		const runtime = await detectPlaywrightRuntime();
 		if (!runtime) {
-			new Notice("No Playwright MCP runtime detected. Configure Playwright MCP Bridge first.");
+			new Notice("No browser bridge detected. Configure it first.");
 			return;
 		}
 
@@ -97,7 +101,7 @@ async function detectPlaywrightRuntime(): Promise<McpRuntimeConfig | null> {
 	const os = req("node:os") as typeof import("node:os");
 	const processRef = req("node:process") as typeof import("node:process");
 
-	const configs = getDefaultMcpConfigPaths(path, os.homedir(), process.cwd());
+	const configs = getDefaultMcpConfigPaths(path, os.homedir(), processRef.cwd());
 	const parsedConfigs = configs
 		.map((configPath) => readMcpConfig(configPath))
 		.filter((config): config is ParsedMcpConfig => config !== null);
@@ -294,12 +298,13 @@ function findPlaywrightRuntime(
 }
 
 function discoverPlaywrightExtensionToken(
-	req: NodeRequire,
+	req: NodeRequireLike,
 	path: typeof import("node:path"),
 	os: typeof import("node:os"),
 	processRef: typeof import("node:process"),
 ): string | null {
 	const fs = req("node:fs") as typeof import("node:fs");
+	const bufferModule = req("node:buffer") as typeof import("node:buffer");
 	const home = os.homedir();
 	const appData = processRef.env.LOCALAPPDATA || path.join(home, "AppData", "Local");
 	const bases = [
@@ -308,8 +313,8 @@ function discoverPlaywrightExtensionToken(
 	];
 	const profiles = ["Default", "Profile 1", "Profile 2", "Profile 3"];
 	const tokenRe = /([A-Za-z0-9_-]{40,50})/;
-	const extIdBuf = Buffer.from(PLAYWRIGHT_EXTENSION_ID);
-	const keyBuf = Buffer.from("auth-token");
+	const extIdBuf = bufferModule.Buffer.from(PLAYWRIGHT_EXTENSION_ID);
+	const keyBuf = bufferModule.Buffer.from("auth-token");
 
 	for (const base of bases) {
 		for (const profile of profiles) {
@@ -337,7 +342,7 @@ function discoverPlaywrightExtensionToken(
 			});
 
 			for (const filePath of files) {
-				let data: Buffer;
+				let data: import("node:buffer").Buffer;
 				try {
 					data = fs.readFileSync(filePath);
 				} catch {
@@ -377,8 +382,10 @@ function discoverPlaywrightExtensionToken(
 
 function validateBase64urlToken(token: string): boolean {
 	try {
+		const req = getNodeRequire();
+		const bufferModule = req("node:buffer") as typeof import("node:buffer");
 		const normalized = token.replace(/-/g, "+").replace(/_/g, "/");
-		const decoded = Buffer.from(normalized, "base64");
+		const decoded = bufferModule.Buffer.from(normalized, "base64");
 		return decoded.length >= 28 && decoded.length <= 36;
 	} catch {
 		return false;
@@ -412,23 +419,40 @@ class StdioMcpClient {
 			capabilities: {},
 			clientInfo: { name: "x-article-in-obsidian", version: "1.0.2" },
 		});
-		client.proc.stdin.write(
-			`${JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" })}\n`,
-		);
+		client.writeFrame({ jsonrpc: "2.0", method: "notifications/initialized" });
 		return client;
 	}
 
 	private attach(): void {
-		this.proc.stdout.on("data", (chunk) => {
-			this.buffer += chunk.toString();
-			const lines = this.buffer.split("\n");
-			this.buffer = lines.pop() ?? "";
-			for (const line of lines) {
-				if (!line.trim()) {
-					continue;
+		const req = getNodeRequire();
+		const bufferModule = req("node:buffer") as typeof import("node:buffer");
+		this.proc.stdout.on("data", (chunk: ChildStdoutChunk) => {
+			const nextChunk =
+				typeof chunk === "string"
+					? chunk
+					: bufferModule.Buffer.from(chunk).toString("utf8");
+			this.buffer += nextChunk;
+			while (true) {
+				const headerEnd = this.buffer.indexOf("\r\n\r\n");
+				if (headerEnd === -1) {
+					break;
 				}
+				const header = this.buffer.slice(0, headerEnd);
+				const match = header.match(/Content-Length:\s*(\d+)/i);
+				if (!match?.[1]) {
+					this.buffer = "";
+					break;
+				}
+				const contentLength = Number(match[1]);
+				const bodyStart = headerEnd + 4;
+				const messageEnd = bodyStart + contentLength;
+				if (this.buffer.length < messageEnd) {
+					break;
+				}
+				const body = this.buffer.slice(bodyStart, messageEnd);
+				this.buffer = this.buffer.slice(messageEnd);
 				try {
-					const response = JSON.parse(line) as JsonRpcResponse;
+					const response = JSON.parse(body) as JsonRpcResponse;
 					if (typeof response.id !== "number") {
 						continue;
 					}
@@ -465,17 +489,29 @@ class StdioMcpClient {
 
 	private request(method: string, params: Record<string, unknown>): Promise<JsonRpcResponse> {
 		const id = this.nextId++;
-		const message = JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n";
-
 		return new Promise<JsonRpcResponse>((resolve, reject) => {
 			this.pending.set(id, { resolve, reject });
-			this.proc.stdin.write(message, (error) => {
-				if (error) {
-					this.pending.delete(id);
-					reject(error);
-				}
-			});
+			this.writeFrame(
+				{ jsonrpc: "2.0", id, method, params },
+				(error) => {
+					if (error) {
+						this.pending.delete(id);
+						reject(error);
+					}
+				},
+			);
 		});
+	}
+
+	private writeFrame(
+		message: Record<string, unknown>,
+		callback?: (error: Error | null | undefined) => void,
+	): void {
+		const req = getNodeRequire();
+		const bufferModule = req("node:buffer") as typeof import("node:buffer");
+		const body = JSON.stringify(message);
+		const header = `Content-Length: ${bufferModule.Buffer.byteLength(body, "utf8")}\r\n\r\n`;
+		this.proc.stdin.write(`${header}${body}`, callback);
 	}
 
 	async close(): Promise<void> {
@@ -483,8 +519,8 @@ class StdioMcpClient {
 	}
 }
 
-function getNodeRequire(): NodeRequire {
-	const maybeRequire = (globalThis as typeof globalThis & { require?: NodeRequire }).require;
+function getNodeRequire(): NodeRequireLike {
+	const maybeRequire = (globalThis as RequireContainer).require;
 	if (typeof maybeRequire === "function") {
 		return maybeRequire;
 	}

@@ -51,7 +51,7 @@ export default class XArticleInObsidianPlugin extends Plugin {
 
 		this.addCommand({
 			id: PUBLISH_VIA_MCP_COMMAND_ID,
-			name: "Publish to X via browser MCP",
+			name: "Publish article through browser",
 			callback: () => {
 				void import("./commands/publishViaMcp").then(({ publishViaDetectedMcp }) =>
 					publishViaDetectedMcp(this),

@@ -1,4 +1,4 @@
-import { MarkdownRenderer, MarkdownView, Notice, TFile, requestUrl } from "obsidian";
+import { Component, MarkdownRenderer, MarkdownView, Notice, TFile, requestUrl } from "obsidian";
 import { buildPreviewMarkdown } from "../markdown";
 import type XArticleInObsidianPlugin from "../main";
 
@@ -376,7 +376,12 @@ async function renderMarkdownToHtml(
 	markdown: string,
 ): Promise<string> {
 	const container = document.createElement("div");
-	await MarkdownRenderer.render(plugin.app, markdown, container, file.path, plugin);
+	const renderComponent = new Component();
+	try {
+		await MarkdownRenderer.render(plugin.app, markdown, container, file.path, renderComponent);
+	} finally {
+		renderComponent.unload();
+	}
 	cleanupRenderedHtml(container);
 	return container.innerHTML;
 }
