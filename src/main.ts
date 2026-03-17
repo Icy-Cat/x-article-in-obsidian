@@ -1,9 +1,11 @@
 import { Plugin, WorkspaceLeaf } from "obsidian";
 import {
+	COPY_PUBLISH_SCRIPT_COMMAND_ID,
 	OPEN_PREVIEW_COMMAND_ID,
 	REFRESH_PREVIEW_COMMAND_ID,
 	VIEW_TYPE_X_ARTICLE_PREVIEW,
 } from "./constants";
+import { copyPublishScript } from "./commands/copyPublishScript";
 import { DEFAULT_SETTINGS, XArticlePreviewSettings, XArticleSettingTab } from "./settings";
 import { XArticlePreviewView } from "./views/xArticlePreviewView";
 
@@ -35,6 +37,14 @@ export default class XArticleInObsidianPlugin extends Plugin {
 			name: "Refresh preview",
 			callback: () => {
 				void this.refreshPreviewViews();
+			},
+		});
+
+		this.addCommand({
+			id: COPY_PUBLISH_SCRIPT_COMMAND_ID,
+			name: "Copy X publish script",
+			callback: () => {
+				void copyPublishScript(this);
 			},
 		});
 
