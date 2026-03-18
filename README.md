@@ -1,4 +1,4 @@
-# 📰 X Article Preview
+# 📰 X Article in Obsidian
 
 [![Obsidian](https://img.shields.io/badge/Obsidian-Plugin-7C3AED?style=flat-square)](#) [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square)](#) [![Version](https://img.shields.io/badge/version-1.0.5-111827?style=flat-square)](#) [![License](https://img.shields.io/badge/license-MIT-16A34A?style=flat-square)](#)
 
@@ -29,14 +29,12 @@
 ### 方式一：从 Release 安装
 
 1. 打开 [GitHub Releases 页面](https://github.com/Icy-Cat/x-article-in-obsidian/releases/latest)
-2. 下载最新版本中的 `main.js`、`manifest.json`、`styles.css`，或直接下载 zip 包
-3. 解压或复制到下面目录：
+2. 下载最新发布版本中的压缩包并解压，解压后的文件夹中会有 `main.js`、`manifest.json`、`styles.css` 三个文件。
+3. 打开 Obsidian 设置 → 第三方插件 → 已安装插件右侧的打开插件文件夹按钮，在打开的文件夹中新建文件夹，命名为 `x-article-in-obsidian`
+4. 把文件复制新建的文件夹中
 
-```text
-<Vault>/.obsidian/plugins/x-article-in-obsidian/
-```
+5. 回到 Obsidian，在已安装插件列表右侧点击刷新，找到 `X Article in Obsidian` 并启用插件
 
-4. 重载 Obsidian，并在 **设置 → 第三方插件** 中启用
 
 ### 方式二：从源码构建
 
@@ -74,7 +72,7 @@ npm run build
 
 ### 配置项
 
-在 **设置 → X Article Preview** 中，当前可配置：
+在 **设置 → X Article in Obsidian** 中，当前可配置：
 
 #### 通用
 

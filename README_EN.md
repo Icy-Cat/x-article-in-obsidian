@@ -1,4 +1,4 @@
-# 📰 X Article Preview
+# 📰 X Article in Obsidian
 
 [![Obsidian](https://img.shields.io/badge/Obsidian-Plugin-7C3AED?style=flat-square)](#) [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square)](#) [![Version](https://img.shields.io/badge/version-1.0.5-111827?style=flat-square)](#) [![License](https://img.shields.io/badge/license-MIT-16A34A?style=flat-square)](#)
 
@@ -29,14 +29,11 @@ Render the current Markdown note into an X Article-style reading sidebar, so you
 ### Option 1: install from Release
 
 1. Open the [GitHub Releases page](https://github.com/Icy-Cat/x-article-in-obsidian/releases/latest)
-2. Download `main.js`, `manifest.json`, and `styles.css`, or download the zip package
-3. Extract or copy them into:
-
-```text
-<Vault>/.obsidian/plugins/x-article-in-obsidian/
-```
-
-4. Reload Obsidian and enable the plugin in **Settings → Community plugins**
+2. Download the latest release zip package and extract it. The extracted folder should contain `main.js`, `manifest.json`, and `styles.css`.
+3. In Obsidian, go to **Settings → Community plugins** and click the button that opens the plugins folder.
+4. Create a new folder named `x-article-in-obsidian`.
+5. Copy `main.js`, `manifest.json`, and `styles.css` into that folder.
+6. Back in Obsidian, refresh the installed plugins list and enable the plugin.
 
 ### Option 2: build from source
 
@@ -74,7 +71,7 @@ The preview pane follows the current Markdown note and supports:
 
 ### Settings
 
-In **Settings → X Article Preview**, you can configure:
+In **Settings → X Article in Obsidian**, you can configure:
 
 #### General
 
