@@ -1,4 +1,5 @@
 import { Notice, Platform, TFile } from "obsidian";
+import { appendPublishLog } from "../logger";
 import type XArticleInObsidianPlugin from "../main";
 import { buildPublishFunctionForNote, buildPublishFunctionFromActiveNote } from "./copyPublishScript";
 
@@ -54,14 +55,33 @@ export async function publishViaDetectedMcp(
 	}
 
 	try {
+		const nodeEnvironment = inspectLocalNodeEnvironment();
+		await appendPublishLog(plugin, "publish.preflight", {
+			sourceNotePath: sourceNote?.file.path ?? null,
+			nodeEnvironment,
+		});
+		if (!nodeEnvironment.available) {
+			new Notice(plugin.t("notice.nodeRequiredForPublish"));
+			return;
+		}
+
 		const functionSource = sourceNote
 			? await buildPublishFunctionForNote(plugin, sourceNote.file, sourceNote.content)
 			: await buildPublishFunctionFromActiveNote(plugin);
 		const runtime = await detectPlaywrightRuntime(plugin);
 		if (!runtime) {
+			await appendPublishLog(plugin, "publish.runtime_missing", {
+				sourceNotePath: sourceNote?.file.path ?? null,
+				nodeEnvironment,
+			});
 			new Notice(plugin.t("notice.noBrowserBridge"));
 			return;
 		}
+		await appendPublishLog(plugin, "publish.runtime_detected", {
+			sourceNotePath: sourceNote?.file.path ?? null,
+			runtime,
+			functionSourceLength: functionSource.length,
+		});
 
 		const client = await StdioMcpClient.connect(runtime);
 		try {
@@ -113,8 +133,17 @@ export async function publishViaDetectedMcp(
 			await client.close();
 		}
 
+		await appendPublishLog(plugin, "publish.success", {
+			sourceNotePath: sourceNote?.file.path ?? null,
+			runtimeSource: runtime.source,
+		});
 		new Notice(plugin.t("notice.publishSuccess", { source: runtime.source }));
 	} catch (error) {
+		await appendPublishLog(plugin, "publish.error", {
+			sourceNotePath: sourceNote?.file.path ?? null,
+			error,
+			normalizedMessage: normalizeMcpErrorMessage(error, plugin),
+		});
 		const message = normalizeMcpErrorMessage(error, plugin);
 		new Notice(message);
 	}
@@ -505,6 +534,47 @@ function buildExecutableCandidates(
 	}
 
 	return Array.from(new Set(candidates));
+}
+
+function inspectLocalNodeEnvironment(): {
+	available: boolean;
+	tools: Array<{ name: string; resolved: string | null; candidates: string[] }>;
+	pathEntries: string[];
+	error?: string;
+} {
+	try {
+		const req = getNodeRequire();
+		const path = req("node:path") as typeof import("node:path");
+		const os = req("node:os") as typeof import("node:os");
+		const fs = req("node:fs") as typeof import("node:fs");
+		const processRef = req("node:process") as typeof import("node:process");
+		const names = ["node", "npm", "npx"];
+
+		const tools = names.map((name) => {
+			const candidates = buildExecutableCandidates(name, path, os, processRef);
+			const resolved = candidates.find((candidate) => path.isAbsolute(candidate) && fs.existsSync(candidate)) ?? null;
+			return {
+				name,
+				resolved,
+				candidates,
+			};
+		});
+
+		return {
+			available: tools.every((tool) => Boolean(tool.resolved)),
+			tools,
+			pathEntries: (processRef.env.PATH ?? "")
+				.split(path.delimiter)
+				.filter((entry) => entry.length > 0),
+		};
+	} catch (error) {
+		return {
+			available: false,
+			tools: [],
+			pathEntries: [],
+			...(error instanceof Error ? { error: error.message } : { error: String(error) }),
+		};
+	}
 }
 
 function wrapShellScriptRuntime(runtime: McpRuntimeConfig): McpRuntimeConfig {

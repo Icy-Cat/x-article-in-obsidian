@@ -50,6 +50,11 @@ export type TranslationKey =
 	| "settings.nodejs.name"
 	| "settings.nodejs.desc"
 	| "settings.nodejs.link"
+	| "settings.debugLog.name"
+	| "settings.debugLog.desc"
+	| "settings.logFile.name"
+	| "settings.logFile.desc"
+	| "settings.logFile.open"
 	| "notice.copyScriptSuccess"
 	| "error.buildPublishScriptFailed"
 	| "error.openMarkdownFirst"
@@ -61,6 +66,8 @@ export type TranslationKey =
 	| "notice.playwrightDisconnected"
 	| "notice.playwrightTokenDetected"
 	| "notice.playwrightTokenMissing"
+	| "notice.logUnavailable"
+	| "notice.logOpenFailed"
 	| "render.copyCodeBlock"
 	| "render.loadingPostPreview"
 	| "render.fallbackPostBody"
@@ -135,6 +142,11 @@ const translations: Translations = {
 		"settings.nodejs.name": "Node.js",
 		"settings.nodejs.desc": "Browser publishing requires a local Node.js environment. Open the official download page here.",
 		"settings.nodejs.link": "Download Node.js",
+		"settings.debugLog.name": "Enable debug log",
+		"settings.debugLog.desc": "Write detailed local logs for browser publishing diagnostics. Keep this off unless you are troubleshooting.",
+		"settings.logFile.name": "Publish log file",
+		"settings.logFile.desc": "Open the local publish log file and copy detailed errors when reporting issues.",
+		"settings.logFile.open": "Open log file",
 		"notice.copyScriptSuccess": "Copied the X publish script to the clipboard.",
 		"error.buildPublishScriptFailed": "Failed to build the publish script.",
 		"error.openMarkdownFirst": "Open a Markdown note first.",
@@ -148,6 +160,8 @@ const translations: Translations = {
 			"Playwright MCP disconnected before initialization finished. Make sure Chrome or Edge is open and the bridge extension is connected.",
 		"notice.playwrightTokenDetected": "Detected and saved the Playwright token ({source}).",
 		"notice.playwrightTokenMissing": "No Playwright token was detected.",
+		"notice.logUnavailable": "The local log file is not available in this environment.",
+		"notice.logOpenFailed": "Failed to open the local log file.",
 		"render.copyCodeBlock": "Copy code block",
 		"render.loadingPostPreview": "Loading post preview...",
 		"render.fallbackPostBody": "Open the original post on X to view the live embed content.",
@@ -218,6 +232,11 @@ const translations: Translations = {
 		"settings.nodejs.name": "Node.js",
 		"settings.nodejs.desc": "通过浏览器发布需要本地 Node.js 环境。可在这里打开 Node.js 官网下载页。",
 		"settings.nodejs.link": "下载 Node.js",
+		"settings.debugLog.name": "开启调试日志",
+		"settings.debugLog.desc": "记录浏览器发布的详细本地诊断日志。仅在排查问题时建议开启。",
+		"settings.logFile.name": "发布日志文件",
+		"settings.logFile.desc": "打开本地发布日志文件，方便把详细报错直接复制出来反馈。",
+		"settings.logFile.open": "打开日志文件",
 		"notice.copyScriptSuccess": "已将 X 发布脚本复制到剪贴板。",
 		"error.buildPublishScriptFailed": "生成发布脚本失败。",
 		"error.openMarkdownFirst": "请先打开一篇 Markdown 笔记。",
@@ -231,6 +250,8 @@ const translations: Translations = {
 			"Playwright MCP 在初始化完成前断开连接。请确认 Chrome 或 Edge 已打开，且桥接扩展已连接。",
 		"notice.playwrightTokenDetected": "已检测并保存 Playwright token（{source}）。",
 		"notice.playwrightTokenMissing": "未检测到 Playwright token。",
+		"notice.logUnavailable": "当前环境无法使用本地日志文件。",
+		"notice.logOpenFailed": "打开本地日志文件失败。",
 		"render.copyCodeBlock": "复制代码块",
 		"render.loadingPostPreview": "正在加载帖子预览...",
 		"render.fallbackPostBody": "打开 X 原帖即可查看实时嵌入内容。",

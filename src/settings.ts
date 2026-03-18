@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import { detectAndPersistPlaywrightToken } from "./commands/publishViaMcp";
 import { LocaleSetting } from "./i18n";
+import { openPublishLogFile } from "./logger";
 import XArticleInObsidianPlugin from "./main";
 
 const PLAYWRIGHT_BRIDGE_STORE_URL =
@@ -10,6 +11,7 @@ const NODEJS_DOWNLOAD_URL = "https://nodejs.org/en/download";
 export interface XArticlePreviewSettings {
 	locale: LocaleSetting;
 	playwrightToken: string;
+	enableDebugLog: boolean;
 	autoRefresh: boolean;
 	stripFrontmatter: boolean;
 	useFilenameAsTitle: boolean;
@@ -21,6 +23,7 @@ export interface XArticlePreviewSettings {
 export const DEFAULT_SETTINGS: XArticlePreviewSettings = {
 	locale: "auto",
 	playwrightToken: "",
+	enableDebugLog: false,
 	autoRefresh: true,
 	stripFrontmatter: true,
 	useFilenameAsTitle: false,
@@ -121,6 +124,25 @@ export class XArticleSettingTab extends PluginSettingTab {
 				button
 					.setButtonText(this.plugin.t("settings.nodejs.link"))
 					.onClick(() => window.open(NODEJS_DOWNLOAD_URL, "_blank", "noopener,noreferrer")),
+			);
+
+		new Setting(containerEl)
+			.setName(this.plugin.t("settings.debugLog.name"))
+			.setDesc(this.plugin.t("settings.debugLog.desc"))
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.enableDebugLog).onChange((value) => {
+					this.plugin.settings.enableDebugLog = value;
+					void this.plugin.saveSettings();
+				}),
+			);
+
+		new Setting(containerEl)
+			.setName(this.plugin.t("settings.logFile.name"))
+			.setDesc(this.plugin.t("settings.logFile.desc"))
+			.addButton((button) =>
+				button.setButtonText(this.plugin.t("settings.logFile.open")).onClick(() => {
+					void openPublishLogFile(this.plugin);
+				}),
 			);
 
 		new Setting(containerEl).setName(this.plugin.t("settings.heading.preview")).setHeading();
