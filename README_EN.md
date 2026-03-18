@@ -104,12 +104,15 @@ The plugin currently supports two publishing flows.
 #### Option 2: publish through the browser
 
 1. Install the Playwright MCP Bridge extension
-2. Use **Install extension** in plugin settings to open the store page
-3. Paste or auto-detect the `Playwright token` if needed
-4. Make sure Playwright MCP is available on your machine
-5. Run **Publish article through browser** from the command palette
+2. Install Node.js locally and make sure `node`, `npm`, and `npx` are available in your PATH
+3. Use **Install extension** in plugin settings to open the store page
+4. Paste or auto-detect the `Playwright token` if needed
+5. Make sure Playwright MCP is available on your machine
+6. Run **Publish article through browser** from the command palette
 
 If a token has already been saved in plugin settings, the plugin will reuse it and skip repeated browser profile scans.
+
+If you see errors such as `spawn npx ENOENT` or `MCP process closed`, the usual cause is that Node.js is not installed locally or `npx` is not available in PATH. Install Node.js first, then reopen Obsidian.
 
 ## Release development
 

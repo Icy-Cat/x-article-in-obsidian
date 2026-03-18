@@ -48,6 +48,7 @@ export type TranslationKey =
 	| "error.openMarkdownFirst"
 	| "notice.publishDesktopOnly"
 	| "notice.noBrowserBridge"
+	| "notice.nodeRequiredForPublish"
 	| "notice.publishSuccess"
 	| "notice.publishFailed"
 	| "notice.playwrightDisconnected"
@@ -111,6 +112,8 @@ const translations: Translations = {
 		"error.openMarkdownFirst": "Open a Markdown note first.",
 		"notice.publishDesktopOnly": "Browser publishing is available on desktop only.",
 		"notice.noBrowserBridge": "No browser bridge was detected. Configure Playwright MCP first.",
+		"notice.nodeRequiredForPublish":
+			"Browser publishing requires a local Node.js environment. Install Node.js and make sure node, npm, and npx are available in PATH before using Publish through browser.",
 		"notice.publishSuccess": "Published to X through Playwright MCP ({source}).",
 		"notice.publishFailed": "Publishing through MCP failed.",
 		"notice.playwrightDisconnected":
@@ -171,6 +174,8 @@ const translations: Translations = {
 		"error.openMarkdownFirst": "请先打开一篇 Markdown 笔记。",
 		"notice.publishDesktopOnly": "浏览器发布功能仅支持桌面端。",
 		"notice.noBrowserBridge": "未检测到浏览器桥接，请先配置 Playwright MCP。",
+		"notice.nodeRequiredForPublish":
+			"通过浏览器发布需要本地 Node.js 环境。请先安装 Node.js，并确保 node、npm、npx 可在 PATH 中使用，然后再使用浏览器发布。",
 		"notice.publishSuccess": "已通过 Playwright MCP 发布到 X（{source}）。",
 		"notice.publishFailed": "通过 MCP 发布失败。",
 		"notice.playwrightDisconnected":

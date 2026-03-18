@@ -857,6 +857,15 @@ function normalizeMcpErrorMessage(error: unknown, plugin: XArticleInObsidianPlug
 	if (!(error instanceof Error)) {
 		return plugin.t("notice.publishFailed");
 	}
+	if (
+		error.message.includes("spawn npx ENOENT") ||
+		error.message.includes("spawn npx.cmd ENOENT") ||
+		error.message.includes("spawn npm ENOENT") ||
+		error.message.includes("spawn npm.cmd ENOENT") ||
+		error.message.includes("Node require is not available in this environment.")
+	) {
+		return plugin.t("notice.nodeRequiredForPublish");
+	}
 	if ("code" in error && error.code === "EPIPE") {
 		return plugin.t("notice.playwrightDisconnected");
 	}

@@ -105,12 +105,15 @@ npm run build
 #### 方式二：通过浏览器直接发布
 
 1. 先安装 Playwright MCP Bridge 扩展
-2. 在设置中点击 **安装扩展** 跳转安装页面
-3. 如有需要，在设置中填写或自动检测 `Playwright token`
-4. 确保本机已经可用 Playwright MCP
-5. 运行命令面板中的 **通过浏览器发布文章**
+2. 本机安装 Node.js，并确保 `node`、`npm`、`npx` 在命令行中可用
+3. 在设置中点击 **安装扩展** 跳转安装页面
+4. 如有需要，在设置中填写或自动检测 `Playwright token`
+5. 确保本机已经可用 Playwright MCP
+6. 运行命令面板中的 **通过浏览器发布文章**
 
 如果本地已保存 token，插件会优先使用，避免每次重新扫描浏览器配置。
+
+如果出现 `spawn npx ENOENT`、`MCP process closed` 或类似启动失败提示，通常表示本机没有可用的 Node.js 环境，或者 `npx` 不在 PATH 中。先安装 Node.js，再重新打开 Obsidian。
 
 ## 发布开发
 
