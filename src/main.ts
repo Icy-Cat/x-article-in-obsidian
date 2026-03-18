@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf } from "obsidian";
+import { MarkdownView, Plugin, WorkspaceLeaf } from "obsidian";
 import {
 	COPY_PUBLISH_SCRIPT_COMMAND_ID,
 	OPEN_PREVIEW_COMMAND_ID,
@@ -82,6 +82,10 @@ export default class XArticleInObsidianPlugin extends Plugin {
 	}
 
 	async activatePreviewView(): Promise<void> {
+		const currentMarkdownFile =
+			this.app.workspace.activeEditor?.file ??
+			this.app.workspace.getActiveViewOfType(MarkdownView)?.file ??
+			null;
 		let leaf: WorkspaceLeaf | null =
 			this.app.workspace.getLeavesOfType(VIEW_TYPE_X_ARTICLE_PREVIEW)[0] ?? null;
 
@@ -95,6 +99,10 @@ export default class XArticleInObsidianPlugin extends Plugin {
 
 		if (!(leaf.view instanceof XArticlePreviewView)) {
 			await leaf.setViewState({ type: VIEW_TYPE_X_ARTICLE_PREVIEW, active: true });
+		}
+
+		if (leaf.view instanceof XArticlePreviewView) {
+			leaf.view.setTargetFilePath(currentMarkdownFile?.path ?? null);
 		}
 
 		void this.app.workspace.revealLeaf(leaf);

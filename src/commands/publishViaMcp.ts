@@ -1,6 +1,6 @@
-import { Notice, Platform } from "obsidian";
+import { Notice, Platform, TFile } from "obsidian";
 import type XArticleInObsidianPlugin from "../main";
-import { buildPublishFunctionFromActiveNote } from "./copyPublishScript";
+import { buildPublishFunctionForNote, buildPublishFunctionFromActiveNote } from "./copyPublishScript";
 
 type McpRuntimeConfig = {
 	command: string;
@@ -39,14 +39,24 @@ const MCP_REQUEST_TIMEOUT_MS = 5_000;
 const MCP_EVALUATE_TIMEOUT_MS = 180_000;
 const REQUIRED_PLAYWRIGHT_TOOLS = ["browser_navigate", "browser_wait_for", "browser_evaluate"] as const;
 
-export async function publishViaDetectedMcp(plugin: XArticleInObsidianPlugin): Promise<void> {
+type PublishSourceNote = {
+	file: TFile;
+	content: string;
+};
+
+export async function publishViaDetectedMcp(
+	plugin: XArticleInObsidianPlugin,
+	sourceNote?: PublishSourceNote,
+): Promise<void> {
 	if (!Platform.isDesktopApp) {
 		new Notice(plugin.t("notice.publishDesktopOnly"));
 		return;
 	}
 
 	try {
-		const functionSource = await buildPublishFunctionFromActiveNote(plugin);
+		const functionSource = sourceNote
+			? await buildPublishFunctionForNote(plugin, sourceNote.file, sourceNote.content)
+			: await buildPublishFunctionFromActiveNote(plugin);
 		const runtime = await detectPlaywrightRuntime(plugin);
 		if (!runtime) {
 			new Notice(plugin.t("notice.noBrowserBridge"));

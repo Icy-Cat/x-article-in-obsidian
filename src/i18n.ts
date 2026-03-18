@@ -9,6 +9,8 @@ export type TranslationKey =
 	| "command.publishViaMcp"
 	| "view.title"
 	| "view.heroBadge"
+	| "view.publish"
+	| "view.publishing"
 	| "view.refresh"
 	| "view.empty.title"
 	| "view.empty.summary"
@@ -68,6 +70,8 @@ const translations: Translations = {
 		"command.publishViaMcp": "Publish article through browser",
 		"view.title": "X article preview",
 		"view.heroBadge": "Preview",
+		"view.publish": "Publish",
+		"view.publishing": "Publishing...",
 		"view.refresh": "Refresh",
 		"view.empty.title": "No note selected",
 		"view.empty.summary": "Open a Markdown note to preview it in the X article layout.",
@@ -127,6 +131,8 @@ const translations: Translations = {
 		"command.publishViaMcp": "通过浏览器发布文章",
 		"view.title": "X 文章预览",
 		"view.heroBadge": "预览",
+		"view.publish": "发布",
+		"view.publishing": "发布中...",
 		"view.refresh": "刷新",
 		"view.empty.title": "未选择笔记",
 		"view.empty.summary": "打开一篇 Markdown 笔记后，这里会按 X Article 的样式实时预览。",

@@ -18,6 +18,7 @@ const HERO_SUMMARY_TARGET_LENGTH = 260;
 
 export class XArticlePreviewView extends ItemView {
 	plugin: XArticleInObsidianPlugin;
+	private toolbarEl!: HTMLDivElement;
 	private heroEl!: HTMLDivElement;
 	private heroCoverEl!: HTMLDivElement;
 	private heroLabelEl!: HTMLDivElement;
@@ -25,7 +26,9 @@ export class XArticlePreviewView extends ItemView {
 	private heroSummaryEl!: HTMLDivElement;
 	private noticeEl!: HTMLDivElement;
 	private articleEl!: HTMLDivElement;
+	private publishButtonEl!: HTMLButtonElement;
 	private refreshButtonEl!: HTMLButtonElement;
+	private isPublishing = false;
 	private refreshToken = 0;
 	private refreshTimer: number | null = null;
 	private sourceScrollEl: HTMLElement | null = null;
@@ -35,6 +38,10 @@ export class XArticlePreviewView extends ItemView {
 	constructor(leaf: WorkspaceLeaf, plugin: XArticleInObsidianPlugin) {
 		super(leaf);
 		this.plugin = plugin;
+	}
+
+	setTargetFilePath(path: string | null): void {
+		this.lastTargetFilePath = path;
 	}
 
 	getViewType(): string {
@@ -54,7 +61,16 @@ export class XArticlePreviewView extends ItemView {
 		this.contentEl.addClass("x-article-preview-view");
 
 		const shellEl = this.contentEl.createDiv({ cls: "x-article-shell" });
+		this.toolbarEl = shellEl.createDiv({ cls: "x-article-toolbar" });
 		const chromeEl = shellEl.createDiv({ cls: "x-article-chrome" });
+
+		this.publishButtonEl = this.toolbarEl.createEl("button", {
+			cls: "x-article-toolbar__button mod-primary",
+			text: this.plugin.t("view.publish"),
+		});
+		this.publishButtonEl.addEventListener("click", () => {
+			void this.publish();
+		});
 
 		this.heroEl = chromeEl.createDiv({ cls: "x-article-hero" });
 		this.heroCoverEl = this.heroEl.createDiv({ cls: "x-article-hero__cover" });
@@ -66,8 +82,8 @@ export class XArticlePreviewView extends ItemView {
 		this.heroTitleEl = heroBodyEl.createDiv({ cls: "x-article-hero__title" });
 		this.heroSummaryEl = heroBodyEl.createDiv({ cls: "x-article-hero__summary" });
 
-		this.refreshButtonEl = chromeEl.createEl("button", {
-			cls: "x-article-refresh",
+		this.refreshButtonEl = this.toolbarEl.createEl("button", {
+			cls: "x-article-toolbar__button",
 			text: this.plugin.t("view.refresh"),
 		});
 		this.refreshButtonEl.addEventListener("click", () => {
@@ -78,7 +94,14 @@ export class XArticlePreviewView extends ItemView {
 		this.noticeEl = cardEl.createDiv({ cls: "x-article-draft-notice" });
 		this.articleEl = cardEl.createDiv({ cls: "x-article-body markdown-rendered" });
 
-		this.registerEvent(this.app.workspace.on("file-open", () => this.queueRefresh()));
+		this.registerEvent(
+			this.app.workspace.on("file-open", (file) => {
+				if (file instanceof TFile && file.extension === "md") {
+					this.lastTargetFilePath = file.path;
+				}
+				this.queueRefresh();
+			}),
+		);
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", () => {
 				this.captureTargetMarkdownView();
@@ -131,6 +154,7 @@ export class XArticlePreviewView extends ItemView {
 		const context = await this.getTargetContext();
 
 		this.refreshButtonEl.disabled = true;
+		this.syncActionButtons();
 
 		if (!context) {
 			this.renderEmptyState(this.plugin.t("view.empty.body"));
@@ -170,7 +194,37 @@ export class XArticlePreviewView extends ItemView {
 			new Notice(this.plugin.t("notice.renderFailed"));
 		} finally {
 			this.refreshButtonEl.disabled = false;
+			this.syncActionButtons();
 		}
+	}
+
+	private async publish(): Promise<void> {
+		if (this.isPublishing) {
+			return;
+		}
+
+		this.isPublishing = true;
+		this.syncActionButtons();
+
+		try {
+			const context = await this.getTargetContext();
+			if (!context) {
+				new Notice(this.plugin.t("error.openMarkdownFirst"));
+				return;
+			}
+			const { publishViaDetectedMcp } = await import("../commands/publishViaMcp");
+			await publishViaDetectedMcp(this.plugin, context);
+		} finally {
+			this.isPublishing = false;
+			this.syncActionButtons();
+		}
+	}
+
+	private syncActionButtons(): void {
+		this.publishButtonEl.disabled = this.isPublishing;
+		this.publishButtonEl.setText(
+			this.plugin.t(this.isPublishing ? "view.publishing" : "view.publish"),
+		);
 	}
 
 	private async getTargetContext(): Promise<{ file: TFile; content: string } | null> {
@@ -315,6 +369,20 @@ export class XArticlePreviewView extends ItemView {
 	}
 
 	private getTargetMarkdownView(): MarkdownView | null {
+		if (this.lastTargetFilePath) {
+			const matchingLeaf = this.app.workspace.getLeavesOfType("markdown").find((leaf) => {
+				return (
+					leaf !== this.leaf &&
+					leaf.view instanceof MarkdownView &&
+					leaf.view.file?.path === this.lastTargetFilePath
+				);
+			});
+
+			if (matchingLeaf?.view instanceof MarkdownView) {
+				return matchingLeaf.view;
+			}
+		}
+
 		const activeEditorFile = this.app.workspace.activeEditor?.file;
 		if (activeEditorFile) {
 			const matchingLeaf = this.app.workspace.getLeavesOfType("markdown").find((leaf) => {
@@ -333,20 +401,6 @@ export class XArticlePreviewView extends ItemView {
 		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (activeView && activeView.leaf !== this.leaf) {
 			return activeView;
-		}
-
-		if (this.lastTargetFilePath) {
-			const matchingLeaf = this.app.workspace.getLeavesOfType("markdown").find((leaf) => {
-				return (
-					leaf !== this.leaf &&
-					leaf.view instanceof MarkdownView &&
-					leaf.view.file?.path === this.lastTargetFilePath
-				);
-			});
-
-			if (matchingLeaf?.view instanceof MarkdownView) {
-				return matchingLeaf.view;
-			}
 		}
 
 		const fallbackLeaf = this.app.workspace.getLeavesOfType("markdown").find((leaf) => {

@@ -52,6 +52,15 @@ export async function buildPublishFunctionFromActiveNote(
 	return buildBrowserPublishFunction(payload.html, payload.markdown, payload.items);
 }
 
+export async function buildPublishFunctionForNote(
+	plugin: XArticleInObsidianPlugin,
+	file: TFile,
+	rawMarkdown: string,
+): Promise<string> {
+	const payload = await buildPublishPayload(plugin, file, rawMarkdown);
+	return buildBrowserPublishFunction(payload.html, payload.markdown, payload.items);
+}
+
 async function buildPublishPayloadFromActiveNote(
 	plugin: XArticleInObsidianPlugin,
 ): Promise<{ html: string; markdown: string; items: PublishItem[] }> {
