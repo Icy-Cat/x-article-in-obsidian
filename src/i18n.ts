@@ -7,6 +7,7 @@ export type TranslationKey =
 	| "command.refreshPreview"
 	| "command.copyPublishScript"
 	| "command.publishViaMcp"
+	| "command.openGuide"
 	| "view.title"
 	| "view.heroBadge"
 	| "view.publish"
@@ -22,6 +23,9 @@ export type TranslationKey =
 	| "settings.heading.general"
 	| "settings.language.name"
 	| "settings.language.desc"
+	| "settings.showWelcomeGuide.name"
+	| "settings.showWelcomeGuide.desc"
+	| "settings.showWelcomeGuide.open"
 	| "settings.heading.preview"
 	| "settings.heading.publish"
 	| "settings.autoRefresh.name"
@@ -43,6 +47,9 @@ export type TranslationKey =
 	| "settings.playwrightBridge.name"
 	| "settings.playwrightBridge.desc"
 	| "settings.playwrightBridge.link"
+	| "settings.nodejs.name"
+	| "settings.nodejs.desc"
+	| "settings.nodejs.link"
 	| "notice.copyScriptSuccess"
 	| "error.buildPublishScriptFailed"
 	| "error.openMarkdownFirst"
@@ -58,7 +65,21 @@ export type TranslationKey =
 	| "render.loadingPostPreview"
 	| "render.fallbackPostBody"
 	| "render.fallbackPostLink"
-	| "render.fallbackPostId";
+	| "render.fallbackPostId"
+	| "guide.title"
+	| "guide.section.preview"
+	| "guide.section.publish"
+	| "guide.preview.open"
+	| "guide.preview.frontmatter"
+	| "guide.preview.scroll"
+	| "guide.publish.node"
+	| "guide.publish.bridge"
+	| "guide.publish.token"
+	| "guide.publish.cover"
+	| "guide.action.openPreview"
+	| "guide.action.downloadNode"
+	| "guide.action.openSettings"
+	| "guide.action.dismiss";
 
 type Translations = Record<SupportedLocale, Record<TranslationKey, string>>;
 
@@ -69,6 +90,7 @@ const translations: Translations = {
 		"command.refreshPreview": "Refresh preview",
 		"command.copyPublishScript": "Copy X publish script",
 		"command.publishViaMcp": "Publish article through browser",
+		"command.openGuide": "Open quick start guide",
 		"view.title": "X article preview",
 		"view.heroBadge": "Preview",
 		"view.publish": "Publish",
@@ -84,6 +106,9 @@ const translations: Translations = {
 		"settings.heading.general": "General",
 		"settings.language.name": "Language",
 		"settings.language.desc": "Choose the language for commands, notices, and settings text.",
+		"settings.showWelcomeGuide.name": "Show quick start guide",
+		"settings.showWelcomeGuide.desc": "Show the welcome guide after installation and keep a button here to reopen it later.",
+		"settings.showWelcomeGuide.open": "Open guide",
 		"settings.heading.preview": "Preview",
 		"settings.heading.publish": "Publish",
 		"settings.autoRefresh.name": "Auto refresh",
@@ -107,6 +132,9 @@ const translations: Translations = {
 		"settings.playwrightBridge.name": "Playwright MCP Bridge",
 		"settings.playwrightBridge.desc": "Open the Chrome Web Store page to install or manage the bridge extension.",
 		"settings.playwrightBridge.link": "Install extension",
+		"settings.nodejs.name": "Node.js",
+		"settings.nodejs.desc": "Browser publishing requires a local Node.js environment. Open the official download page here.",
+		"settings.nodejs.link": "Download Node.js",
 		"notice.copyScriptSuccess": "Copied the X publish script to the clipboard.",
 		"error.buildPublishScriptFailed": "Failed to build the publish script.",
 		"error.openMarkdownFirst": "Open a Markdown note first.",
@@ -125,6 +153,20 @@ const translations: Translations = {
 		"render.fallbackPostBody": "Open the original post on X to view the live embed content.",
 		"render.fallbackPostLink": "View post on X",
 		"render.fallbackPostId": "Post ID {statusId}",
+		"guide.title": "X Aarticle in Obsidian quick start",
+		"guide.section.preview": "Preview",
+		"guide.section.publish": "Publish",
+		"guide.preview.open": "Open the preview from the newspaper ribbon icon on the left or the Open preview command.",
+		"guide.preview.frontmatter": "Type --- at the beginning of the note to open frontmatter, then use title and cover to control the hero title and cover image.",
+		"guide.preview.scroll": "The preview follows the current Markdown note and keeps scrolling in sync.",
+		"guide.publish.node": "Install Node.js locally before using Publish through browser.",
+		"guide.publish.bridge": "Install the Playwright MCP Bridge extension from plugin settings.",
+		"guide.publish.token": "Paste or auto-detect the Playwright token in settings if needed.",
+		"guide.publish.cover": "The publish flow fills the title first and uploads the cover last so you can adjust the crop.",
+		"guide.action.openPreview": "Open preview",
+		"guide.action.downloadNode": "Download Node.js",
+		"guide.action.openSettings": "Open settings",
+		"guide.action.dismiss": "Do not show again",
 	},
 	"zh-CN": {
 		"ribbon.openPreview": "打开 X 文章预览",
@@ -132,6 +174,7 @@ const translations: Translations = {
 		"command.refreshPreview": "刷新预览",
 		"command.copyPublishScript": "复制 X 发布脚本",
 		"command.publishViaMcp": "通过浏览器发布文章",
+		"command.openGuide": "打开快速使用指南",
 		"view.title": "X 文章预览",
 		"view.heroBadge": "预览",
 		"view.publish": "发布",
@@ -147,6 +190,9 @@ const translations: Translations = {
 		"settings.heading.general": "通用",
 		"settings.language.name": "语言",
 		"settings.language.desc": "设置命令、通知和配置页所使用的界面语言。",
+		"settings.showWelcomeGuide.name": "显示快速使用指南",
+		"settings.showWelcomeGuide.desc": "安装后显示欢迎引导，并在这里保留一个可再次打开的入口。",
+		"settings.showWelcomeGuide.open": "打开指南",
 		"settings.heading.preview": "预览",
 		"settings.heading.publish": "发布",
 		"settings.autoRefresh.name": "自动刷新",
@@ -169,6 +215,9 @@ const translations: Translations = {
 		"settings.playwrightBridge.name": "Playwright MCP Bridge",
 		"settings.playwrightBridge.desc": "打开 Chrome 应用商店页面，安装或管理这个桥接扩展。",
 		"settings.playwrightBridge.link": "安装扩展",
+		"settings.nodejs.name": "Node.js",
+		"settings.nodejs.desc": "通过浏览器发布需要本地 Node.js 环境。可在这里打开 Node.js 官网下载页。",
+		"settings.nodejs.link": "下载 Node.js",
 		"notice.copyScriptSuccess": "已将 X 发布脚本复制到剪贴板。",
 		"error.buildPublishScriptFailed": "生成发布脚本失败。",
 		"error.openMarkdownFirst": "请先打开一篇 Markdown 笔记。",
@@ -187,6 +236,20 @@ const translations: Translations = {
 		"render.fallbackPostBody": "打开 X 原帖即可查看实时嵌入内容。",
 		"render.fallbackPostLink": "在 X 中查看原帖",
 		"render.fallbackPostId": "帖子 ID {statusId}",
+		"guide.title": "X Aarticle in Obsidian快速上手",
+		"guide.section.preview": "预览",
+		"guide.section.publish": "发布",
+		"guide.preview.open": "通过左侧功能区的报纸图标或“打开预览”命令打开侧栏预览。",
+		"guide.preview.frontmatter": "可在笔记开头输入 --- 打开 frontmatter，再用 title 和 cover 控制头图标题与封面。",
+		"guide.preview.scroll": "预览会跟随当前 Markdown 笔记，并保持滚动同步。",
+		"guide.publish.node": "使用“通过浏览器发布”前，请先在本机安装 Node.js。",
+		"guide.publish.bridge": "在插件设置中安装 Playwright MCP Bridge 扩展。",
+		"guide.publish.token": "如有需要，在设置中粘贴或自动检测 Playwright token。",
+		"guide.publish.cover": "发布时会先填写标题，最后上传封面，方便你手动调整封面裁切。",
+		"guide.action.openPreview": "打开预览",
+		"guide.action.downloadNode": "下载 Node.js",
+		"guide.action.openSettings": "打开设置",
+		"guide.action.dismiss": "不再显示",
 	},
 };
 

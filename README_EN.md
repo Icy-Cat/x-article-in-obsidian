@@ -1,6 +1,6 @@
 # 📰 X Article in Obsidian
 
-[![Obsidian](https://img.shields.io/badge/Obsidian-Plugin-7C3AED?style=flat-square)](#) [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square)](#) [![Version](https://img.shields.io/badge/version-1.0.5-111827?style=flat-square)](#) [![License](https://img.shields.io/badge/license-MIT-16A34A?style=flat-square)](#)
+[![Obsidian](https://img.shields.io/badge/Obsidian-Plugin-7C3AED?style=flat-square)](#) [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square)](#) [![Version](https://img.shields.io/badge/version-1.0.7-111827?style=flat-square)](#) [![License](https://img.shields.io/badge/license-MIT-16A34A?style=flat-square)](#)
 
 Render the current Markdown note into an X Article-style reading sidebar, so you can write and review the final reading feel at the same time.
 
@@ -68,6 +68,18 @@ The preview pane follows the current Markdown note and supports:
 - synchronized scrolling
 - rich previews for standalone X links
 - styled code blocks with copy buttons
+- frontmatter `title` / `cover` as the preferred hero title and cover source
+
+After installation, the plugin also shows a quick start guide once. You can reopen it anytime with **Open quick start guide** from the command palette.
+
+If you want to add frontmatter, type this at the start of the note:
+
+```md
+---
+title: Article title
+cover: ![[cover.png]]
+---
+```
 
 ### Settings
 
@@ -82,6 +94,7 @@ In **Settings → X Article in Obsidian**, you can configure:
 - `Playwright token`: manually paste `PLAYWRIGHT_MCP_EXTENSION_TOKEN`
 - `Detect`: scan the local machine for a usable token and save it to plugin settings
 - `Install extension`: open the Chrome Web Store install page for Playwright MCP Bridge
+- `Node.js`: open the official Node.js download page, required before browser publishing
 
 #### Preview
 
@@ -114,6 +127,12 @@ If a token has already been saved in plugin settings, the plugin will reuse it a
 
 If you see errors such as `spawn npx ENOENT` or `MCP process closed`, the usual cause is that Node.js is not installed locally or `npx` is not available in PATH. Install Node.js first, then reopen Obsidian.
 
+If the note frontmatter provides `title` and `cover`:
+
+- the preview hero uses them first
+- browser publishing fills `title` first
+- `cover` is uploaded last so you can still adjust the crop in the browser
+
 ## Release development
 
 This repository includes GitHub Actions for automatic build and release.
@@ -138,6 +157,15 @@ The workflow will automatically:
 `versions.json` is updated automatically when `npm version` runs.
 
 ## Common examples
+
+Use frontmatter to control the title and cover:
+
+```md
+---
+title: My X article title
+cover: ![[cover.png]]
+---
+```
 
 Insert a standalone X link in your note:
 

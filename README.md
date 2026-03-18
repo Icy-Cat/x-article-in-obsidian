@@ -1,6 +1,6 @@
 # 📰 X Article in Obsidian
 
-[![Obsidian](https://img.shields.io/badge/Obsidian-Plugin-7C3AED?style=flat-square)](#) [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square)](#) [![Version](https://img.shields.io/badge/version-1.0.5-111827?style=flat-square)](#) [![License](https://img.shields.io/badge/license-MIT-16A34A?style=flat-square)](#)
+[![Obsidian](https://img.shields.io/badge/Obsidian-Plugin-7C3AED?style=flat-square)](#) [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square)](#) [![Version](https://img.shields.io/badge/version-1.0.7-111827?style=flat-square)](#) [![License](https://img.shields.io/badge/license-MIT-16A34A?style=flat-square)](#)
 
 把当前 Markdown 笔记实时渲染成接近 X Article 的阅读侧栏，让你一边写，一边看最终阅读效果。
 
@@ -69,6 +69,18 @@ npm run build
 - 滚动同步
 - 独立 X 链接富预览
 - 代码块样式和复制按钮
+- frontmatter 中 `title` / `cover` 优先控制头图标题与封面
+
+首次安装后，插件还会弹出一个快速上手引导。你也可以随时通过命令面板中的 **打开快速使用指南** 再次查看。
+
+如果需要设置 frontmatter，可在笔记开头输入：
+
+```md
+---
+title: 文章标题
+cover: ![[cover.png]]
+---
+```
 
 ### 配置项
 
@@ -83,6 +95,7 @@ npm run build
 - `Playwright Token`：手动填写 `PLAYWRIGHT_MCP_EXTENSION_TOKEN`
 - `自动检测`：扫描本机可用 token 并写入插件设置，避免重复扫描
 - `安装扩展`：打开 Playwright MCP Bridge 的 Chrome Web Store 安装页
+- `Node.js`：打开 Node.js 官网下载页，浏览器发布前需先安装本地 Node.js 环境
 
 #### 预览
 
@@ -115,6 +128,12 @@ npm run build
 
 如果出现 `spawn npx ENOENT`、`MCP process closed` 或类似启动失败提示，通常表示本机没有可用的 Node.js 环境，或者 `npx` 不在 PATH 中。先安装 Node.js，再重新打开 Obsidian。
 
+如果笔记 frontmatter 中提供了 `title` 和 `cover`：
+
+- 预览页会优先使用它们作为头图标题和封面
+- 浏览器发布时会优先填写 `title`
+- `cover` 会在发布流程最后上传，方便你在网页里手动调整封面裁切区域
+
 ## 发布开发
 
 这个仓库已经配置了 GitHub Actions 自动构建和发布。
@@ -139,6 +158,15 @@ git push --tags
 `versions.json` 会在执行 `npm version` 时自动同步更新。
 
 ## 常用示例
+
+使用 frontmatter 控制标题和封面：
+
+```md
+---
+title: 我的 X 长文标题
+cover: ![[cover.png]]
+---
+```
 
 在笔记中插入独立 X 链接：
 

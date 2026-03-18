@@ -5,6 +5,7 @@ import XArticleInObsidianPlugin from "./main";
 
 const PLAYWRIGHT_BRIDGE_STORE_URL =
 	"https://chromewebstore.google.com/detail/playwright-mcp-bridge/mmlmfjhmonkocbjadbfplnigmagldckm";
+const NODEJS_DOWNLOAD_URL = "https://nodejs.org/en/download";
 
 export interface XArticlePreviewSettings {
 	locale: LocaleSetting;
@@ -13,6 +14,8 @@ export interface XArticlePreviewSettings {
 	stripFrontmatter: boolean;
 	useFilenameAsTitle: boolean;
 	showDraftNotice: boolean;
+	showWelcomeGuide: boolean;
+	hasSeenWelcomeGuide: boolean;
 }
 
 export const DEFAULT_SETTINGS: XArticlePreviewSettings = {
@@ -22,6 +25,8 @@ export const DEFAULT_SETTINGS: XArticlePreviewSettings = {
 	stripFrontmatter: true,
 	useFilenameAsTitle: false,
 	showDraftNotice: true,
+	showWelcomeGuide: true,
+	hasSeenWelcomeGuide: false,
 };
 
 export class XArticleSettingTab extends PluginSettingTab {
@@ -54,6 +59,21 @@ export class XArticleSettingTab extends PluginSettingTab {
 							void this.plugin.refreshPreviewViews();
 						});
 					}),
+			);
+
+		new Setting(containerEl)
+			.setName(this.plugin.t("settings.showWelcomeGuide.name"))
+			.setDesc(this.plugin.t("settings.showWelcomeGuide.desc"))
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.showWelcomeGuide).onChange((value) => {
+					this.plugin.settings.showWelcomeGuide = value;
+					void this.plugin.saveSettings();
+				}),
+			)
+			.addButton((button) =>
+				button.setButtonText(this.plugin.t("settings.showWelcomeGuide.open")).onClick(() => {
+					this.plugin.openWelcomeGuide();
+				}),
 			);
 
 		new Setting(containerEl).setName(this.plugin.t("settings.heading.publish")).setHeading();
@@ -92,6 +112,15 @@ export class XArticleSettingTab extends PluginSettingTab {
 				button
 					.setButtonText(this.plugin.t("settings.playwrightBridge.link"))
 					.onClick(() => window.open(PLAYWRIGHT_BRIDGE_STORE_URL, "_blank", "noopener,noreferrer")),
+			);
+
+		new Setting(containerEl)
+			.setName(this.plugin.t("settings.nodejs.name"))
+			.setDesc(this.plugin.t("settings.nodejs.desc"))
+			.addButton((button) =>
+				button
+					.setButtonText(this.plugin.t("settings.nodejs.link"))
+					.onClick(() => window.open(NODEJS_DOWNLOAD_URL, "_blank", "noopener,noreferrer")),
 			);
 
 		new Setting(containerEl).setName(this.plugin.t("settings.heading.preview")).setHeading();

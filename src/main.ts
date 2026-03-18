@@ -1,6 +1,7 @@
 import { MarkdownView, Plugin, WorkspaceLeaf } from "obsidian";
 import {
 	COPY_PUBLISH_SCRIPT_COMMAND_ID,
+	OPEN_GUIDE_COMMAND_ID,
 	OPEN_PREVIEW_COMMAND_ID,
 	PUBLISH_VIA_MCP_COMMAND_ID,
 	REFRESH_PREVIEW_COMMAND_ID,
@@ -9,7 +10,15 @@ import {
 import { copyPublishScript } from "./commands/copyPublishScript";
 import { translate, type TranslationKey } from "./i18n";
 import { DEFAULT_SETTINGS, XArticlePreviewSettings, XArticleSettingTab } from "./settings";
+import { XArticleWelcomeModal } from "./ui/welcomeModal";
 import { XArticlePreviewView } from "./views/xArticlePreviewView";
+
+type AppWithInternalSettings = typeof Plugin.prototype.app & {
+	setting?: {
+		open: () => void;
+		openTabById: (id: string) => void;
+	};
+};
 
 export default class XArticleInObsidianPlugin extends Plugin {
 	settings: XArticlePreviewSettings;
@@ -60,7 +69,16 @@ export default class XArticleInObsidianPlugin extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: OPEN_GUIDE_COMMAND_ID,
+			name: this.t("command.openGuide"),
+			callback: () => {
+				this.openWelcomeGuide();
+			},
+		});
+
 		this.addSettingTab(new XArticleSettingTab(this.app, this));
+		this.maybeShowWelcomeGuide();
 	}
 
 	onunload(): void {
@@ -75,6 +93,16 @@ export default class XArticleInObsidianPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
+	}
+
+	openWelcomeGuide(): void {
+		new XArticleWelcomeModal(this).open();
+	}
+
+	openSettingsTab(): void {
+		const appWithSettings = this.app as AppWithInternalSettings;
+		appWithSettings.setting?.open();
+		appWithSettings.setting?.openTabById(this.manifest.id);
 	}
 
 	t(key: TranslationKey, vars?: Record<string, string | number>): string {
@@ -112,6 +140,16 @@ export default class XArticleInObsidianPlugin extends Plugin {
 	async refreshPreviewViews(): Promise<void> {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_X_ARTICLE_PREVIEW);
 		await Promise.all(leaves.map((leaf) => this.refreshLeaf(leaf)));
+	}
+
+	private maybeShowWelcomeGuide(): void {
+		if (!this.settings.showWelcomeGuide || this.settings.hasSeenWelcomeGuide) {
+			return;
+		}
+
+		this.settings.hasSeenWelcomeGuide = true;
+		void this.saveSettings();
+		window.setTimeout(() => this.openWelcomeGuide(), 300);
 	}
 
 	private async refreshLeaf(leaf: WorkspaceLeaf): Promise<void> {
