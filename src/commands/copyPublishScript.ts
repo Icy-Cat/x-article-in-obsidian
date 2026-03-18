@@ -27,6 +27,19 @@ type PublishItem =
 			base64: string;
 	  };
 
+type PublishImageAsset = Omit<
+	Extract<PublishItem, { type: "image" }>,
+	"type" | "marker"
+>;
+
+type PublishPayload = {
+	html: string;
+	markdown: string;
+	items: PublishItem[];
+	title: string | null;
+	cover: PublishImageAsset | null;
+};
+
 export async function copyPublishScript(plugin: XArticleInObsidianPlugin): Promise<void> {
 	try {
 		const script = await buildPublishScriptFromActiveNote(plugin);
@@ -42,14 +55,26 @@ export async function buildPublishScriptFromActiveNote(
 	plugin: XArticleInObsidianPlugin,
 ): Promise<string> {
 	const payload = await buildPublishPayloadFromActiveNote(plugin);
-	return buildBrowserPublishScript(payload.html, payload.markdown, payload.items);
+	return buildBrowserPublishScript(
+		payload.html,
+		payload.markdown,
+		payload.items,
+		payload.title,
+		payload.cover,
+	);
 }
 
 export async function buildPublishFunctionFromActiveNote(
 	plugin: XArticleInObsidianPlugin,
 ): Promise<string> {
 	const payload = await buildPublishPayloadFromActiveNote(plugin);
-	return buildBrowserPublishFunction(payload.html, payload.markdown, payload.items);
+	return buildBrowserPublishFunction(
+		payload.html,
+		payload.markdown,
+		payload.items,
+		payload.title,
+		payload.cover,
+	);
 }
 
 export async function buildPublishFunctionForNote(
@@ -58,12 +83,18 @@ export async function buildPublishFunctionForNote(
 	rawMarkdown: string,
 ): Promise<string> {
 	const payload = await buildPublishPayload(plugin, file, rawMarkdown);
-	return buildBrowserPublishFunction(payload.html, payload.markdown, payload.items);
+	return buildBrowserPublishFunction(
+		payload.html,
+		payload.markdown,
+		payload.items,
+		payload.title,
+		payload.cover,
+	);
 }
 
 async function buildPublishPayloadFromActiveNote(
 	plugin: XArticleInObsidianPlugin,
-): Promise<{ html: string; markdown: string; items: PublishItem[] }> {
+): Promise<PublishPayload> {
 	const markdownView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
 	if (!markdownView?.file) {
 		throw new Error(plugin.t("error.openMarkdownFirst"));
@@ -76,15 +107,51 @@ async function buildPublishPayload(
 	plugin: XArticleInObsidianPlugin,
 	file: TFile,
 	rawMarkdown: string,
-): Promise<{ html: string; markdown: string; items: PublishItem[] }> {
+): Promise<PublishPayload> {
 	const markdown = buildPreviewMarkdown(file, rawMarkdown, plugin.settings);
 	const extraction = await extractPublishItems(plugin, file, markdown);
 	const html = await renderMarkdownToHtml(plugin, file, extraction.processedMarkdown);
+	const title = getFrontmatterString(plugin, file, ["title", "Title"]);
+	const coverTarget = getFrontmatterString(plugin, file, ["cover", "Cover"]);
+	const cover = coverTarget
+		? await resolveImageAsset(plugin, file, normalizeFrontmatterImageTarget(coverTarget), "")
+		: null;
 	return {
 		html,
 		markdown: extraction.processedMarkdown,
 		items: extraction.items,
+		title,
+		cover,
 	};
+}
+
+function getFrontmatterString(
+	plugin: XArticleInObsidianPlugin,
+	file: TFile,
+	keys: string[],
+): string | null {
+	const frontmatter = plugin.app.metadataCache.getFileCache(file)?.frontmatter as
+		| Record<string, unknown>
+		| undefined;
+	if (!frontmatter) {
+		return null;
+	}
+
+	for (const key of keys) {
+		const value = frontmatter[key];
+		if (typeof value === "string" && value.trim().length > 0) {
+			return value.trim();
+		}
+	}
+
+	return null;
+}
+
+function normalizeFrontmatterImageTarget(value: string): string {
+	return value
+		.replace(/^!\[\[|\]\]$/g, "")
+		.replace(/^!\[[^\]]*\]\((.+)\)$/u, "$1")
+		.trim();
 }
 
 async function extractPublishItems(
@@ -424,13 +491,25 @@ function cleanupRenderedHtml(container: HTMLElement): void {
 	});
 }
 
-function buildBrowserPublishScript(html: string, markdown: string, items: PublishItem[]): string {
-	return `(${buildBrowserPublishFunction(html, markdown, items)})();`;
+function buildBrowserPublishScript(
+	html: string,
+	markdown: string,
+	items: PublishItem[],
+	title?: string | null,
+	cover?: PublishImageAsset | null,
+): string {
+	return `(${buildBrowserPublishFunction(html, markdown, items, title, cover)})();`;
 }
 
-function buildBrowserPublishFunction(html: string, markdown: string, items: PublishItem[]): string {
+function buildBrowserPublishFunction(
+	html: string,
+	markdown: string,
+	items: PublishItem[],
+	title?: string | null,
+	cover?: PublishImageAsset | null,
+): string {
 	return `async () => {
-  const payload = ${JSON.stringify({ html, markdown, items }, null, 2)};
+  const payload = ${JSON.stringify({ html, markdown, items, title: title ?? null, cover: cover ?? null }, null, 2)};
 
   const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -439,6 +518,65 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
       document.querySelector("[data-contents='true'] [contenteditable='true']") ||
       document.querySelector("[contenteditable='true']")
     );
+  }
+
+  function findTitleField() {
+    const editor = findEditor();
+    const candidates = Array.from(
+      document.querySelectorAll("input[type='text'], textarea, [contenteditable='true']")
+    ).filter((node) => node !== editor);
+
+    const titleKeywords = ["title", "标题", "add title", "输入标题"];
+    const scored = candidates
+      .filter((node) => isVisibleElement(node))
+      .map((node) => {
+        const text = normalizeText(
+          node.getAttribute?.("aria-label") ||
+          node.getAttribute?.("placeholder") ||
+          node.getAttribute?.("data-testid") ||
+          ""
+        );
+        const rect = node.getBoundingClientRect();
+        let score = 0;
+        if (titleKeywords.some((keyword) => text.includes(keyword))) score += 10;
+        if (rect.top < 420) score += 4;
+        if (rect.width > 240) score += 2;
+        return { node, score };
+      })
+      .sort((left, right) => right.score - left.score);
+
+    return scored[0]?.node || null;
+  }
+
+  async function setArticleTitle() {
+    if (!payload.title) {
+      return;
+    }
+
+    const titleField = findTitleField();
+    if (!titleField) {
+      console.warn("Title field not found.");
+      return;
+    }
+
+    if (titleField instanceof HTMLInputElement || titleField instanceof HTMLTextAreaElement) {
+      const proto = titleField instanceof HTMLTextAreaElement
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+      setter?.call(titleField, payload.title);
+      titleField.dispatchEvent(new Event("input", { bubbles: true }));
+      titleField.dispatchEvent(new Event("change", { bubbles: true }));
+    } else {
+      titleField.focus();
+      await sleep(80);
+      document.execCommand("selectAll", false);
+      document.execCommand("insertText", false, payload.title);
+      titleField.dispatchEvent(new Event("input", { bubbles: true }));
+      titleField.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    await sleep(250);
   }
 
   function createClipboardEvent(htmlValue, textValue) {
@@ -972,6 +1110,24 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     throw new Error("Media file input not found.");
   }
 
+  async function waitForCoverFileInput(coverButton) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const container =
+        coverButton?.closest("div") ||
+        coverButton?.parentElement ||
+        document;
+      const directInput =
+        container?.querySelector("input[data-testid='fileInput']") ||
+        document.querySelector("input[data-testid='fileInput']");
+      if (directInput instanceof HTMLInputElement) {
+        return directInput;
+      }
+      await sleep(150);
+    }
+
+    throw new Error("Cover file input not found.");
+  }
+
   async function waitForMediaUpload(timeoutMs) {
     const startedAt = Date.now();
     while (Date.now() - startedAt < timeoutMs) {
@@ -1010,7 +1166,71 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     removeAnchorToken(anchorInfo.token);
   }
 
+  function findCoverButton() {
+    const directButton = document.querySelector(
+      "button[aria-label='添加照片或视频'], button[aria-label='Add photos or video']"
+    );
+    if (directButton instanceof HTMLElement && isVisibleElement(directButton)) {
+      return directButton;
+    }
+
+    const labels = [
+      "封面",
+      "cover",
+      "add cover",
+      "upload cover",
+      "更换封面",
+      "编辑封面",
+      "添加照片或视频",
+      "add photos or video"
+    ];
+    const nodes = Array.from(document.querySelectorAll("button, [role='button']"))
+      .filter((node) => isVisibleElement(node));
+
+    for (const node of nodes) {
+      const text = normalizeText(
+        [
+          node.textContent || "",
+          node.getAttribute("aria-label") || "",
+          node.getAttribute("data-testid") || ""
+        ].join(" ")
+      );
+      if (labels.some((label) => text.includes(label))) {
+        return node;
+      }
+    }
+
+    return null;
+  }
+
+  async function uploadCover() {
+    if (!payload.cover) {
+      return;
+    }
+
+    const coverButton = findCoverButton();
+    if (!(coverButton instanceof HTMLElement)) {
+      console.warn("Cover button not found.");
+      return;
+    }
+
+    coverButton.click();
+    await sleep(400);
+
+    const input = await waitForCoverFileInput(coverButton);
+    const file = base64ToFile(payload.cover.base64, payload.cover.fileName, payload.cover.mimeType);
+    const data = new DataTransfer();
+    data.items.add(file);
+    input.files = data.files;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await waitForMediaUpload(15000);
+    await sleep(600);
+  }
+
   async function run() {
+    await setArticleTitle();
+    await sleep(200);
     await insertArticleHtml();
     await sleep(800);
     let processedItems = 0;
@@ -1037,6 +1257,7 @@ function buildBrowserPublishFunction(html: string, markdown: string, items: Publ
     }
 
     removeResidualMarkers();
+    await uploadCover();
     console.log("X publish script finished.");
     return { ok: true, processedItems, totalItems: payload.items.length };
   }

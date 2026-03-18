@@ -186,7 +186,7 @@ export class XArticlePreviewView extends ItemView {
 
 			remapArticleDom(this.articleEl);
 			enhanceArticlePreview(this.articleEl, this.plugin, postEmbedCache);
-			this.renderHeroCard(context.file.basename);
+			this.renderHeroCard(context.file);
 			this.syncToSourceScroll();
 		} catch (error) {
 			console.error("Failed to render X article preview", error);
@@ -251,15 +251,18 @@ export class XArticlePreviewView extends ItemView {
 		this.articleEl.createDiv({ cls: "x-article-empty" }).setText(message);
 	}
 
-	private renderHeroCard(fallbackTitle: string): void {
+	private renderHeroCard(file: TFile): void {
 		const title =
+			this.getFrontmatterString(file, ["title", "Title"]) ||
 			this.articleEl.querySelector(".longform-header-one")?.textContent?.trim() ||
 			this.articleEl.querySelector(".longform-header-two")?.textContent?.trim() ||
-			fallbackTitle;
+			file.basename;
 		const summary =
 			this.extractHeroSummary() || this.plugin.t("view.defaultSummary");
 		const coverSrc =
-			this.articleEl.querySelector<HTMLImageElement>("img")?.getAttribute("src") || null;
+			this.resolveFrontmatterCover(file, ["cover", "Cover"]) ||
+			this.articleEl.querySelector<HTMLImageElement>("img")?.getAttribute("src") ||
+			null;
 
 		this.heroTitleEl.setText(title);
 		this.heroSummaryEl.setText(summary);
@@ -276,6 +279,49 @@ export class XArticlePreviewView extends ItemView {
 		this.heroSummaryEl.setText(summary);
 		this.heroCoverEl.removeClass("has-image");
 		this.heroCoverEl.style.removeProperty("--x-article-cover-image");
+	}
+
+	private getFrontmatterString(file: TFile, keys: string[]): string | null {
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter as
+			| Record<string, unknown>
+			| undefined;
+		if (!frontmatter) {
+			return null;
+		}
+
+		for (const key of keys) {
+			const value = frontmatter[key];
+			if (typeof value === "string" && value.trim().length > 0) {
+				return value.trim();
+			}
+		}
+
+		return null;
+	}
+
+	private resolveFrontmatterCover(file: TFile, keys: string[]): string | null {
+		const rawCover = this.getFrontmatterString(file, keys);
+		if (!rawCover) {
+			return null;
+		}
+
+		const normalized = rawCover
+			.replace(/^!\[\[|\]\]$/g, "")
+			.replace(/^!\[[^\]]*\]\((.+)\)$/u, "$1")
+			.trim();
+		if (/^https?:\/\//i.test(normalized)) {
+			return normalized;
+		}
+
+		const linkedFile =
+			this.app.metadataCache.getFirstLinkpathDest(normalized, file.path) ??
+			this.app.metadataCache.getFirstLinkpathDest(normalized.replace(/^\.?\//, ""), file.path);
+
+		if (linkedFile instanceof TFile) {
+			return this.app.vault.getResourcePath(linkedFile);
+		}
+
+		return normalized.length > 0 ? normalized : null;
 	}
 
 	private extractHeroSummary(): string {
