@@ -628,7 +628,7 @@ class StdioMcpClient {
 	private readonly stderrChunks: string[] = [];
 	private closed = false;
 	private exitCode: number | null = null;
-	private signal: NodeJS.Signals | null = null;
+	private signal: string | null = null;
 	private spawnError: Error | null = null;
 	private stdinError: Error | null = null;
 
@@ -786,7 +786,7 @@ class StdioMcpClient {
 					},
 					reject: (reason) => {
 						window.clearTimeout(timer);
-						reject(reason);
+						reject(reason instanceof Error ? reason : new Error(String(reason)));
 					},
 				});
 			}
