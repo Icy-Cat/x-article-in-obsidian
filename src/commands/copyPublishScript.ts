@@ -40,6 +40,8 @@ type PublishPayload = {
 	cover: PublishImageAsset | null;
 };
 
+const IMAGE_FETCH_CONCURRENCY = 4;
+
 export async function copyPublishScript(plugin: XArticleInObsidianPlugin): Promise<void> {
 	try {
 		const script = await buildPublishScriptFromActiveNote(plugin);
@@ -123,6 +125,43 @@ async function buildPublishPayload(
 		title,
 		cover,
 	};
+}
+
+function createConcurrencyLimiter(limit: number): <T>(run: () => Promise<T>) => Promise<T> {
+	let activeCount = 0;
+	const queue: Array<{
+		run: () => Promise<unknown>;
+		resolve: (value: unknown) => void;
+		reject: (reason?: unknown) => void;
+	}> = [];
+
+	const next = (): void => {
+		if (activeCount >= limit || queue.length === 0) {
+			return;
+		}
+		const task = queue.shift();
+		if (!task) {
+			return;
+		}
+		activeCount += 1;
+		void Promise.resolve()
+			.then(task.run)
+			.then(task.resolve, task.reject)
+			.finally(() => {
+				activeCount -= 1;
+				next();
+			});
+	};
+
+	return <T>(run: () => Promise<T>): Promise<T> =>
+		new Promise<T>((resolve, reject) => {
+			queue.push({
+				run: run as () => Promise<unknown>,
+				resolve: resolve as (value: unknown) => void,
+				reject,
+			});
+			next();
+		});
 }
 
 function getFrontmatterString(
@@ -278,7 +317,15 @@ async function extractPublishItems(
 	segments.sort((left, right) => left.start - right.start);
 
 	let processedMarkdown = markdown;
-	const items: PublishItem[] = [];
+	const imageTasks = new Map<
+		string,
+		Promise<
+			(Omit<Extract<PublishItem, { type: "image" }>, "type" | "marker" | "alt"> & {
+				alt: string;
+			}) | null
+		>
+	>();
+	const limitImageFetch = createConcurrencyLimiter(IMAGE_FETCH_CONCURRENCY);
 
 	for (let index = segments.length - 1; index >= 0; index -= 1) {
 		const segment = segments[index];
@@ -290,8 +337,26 @@ async function extractPublishItems(
 		processedMarkdown =
 			processedMarkdown.slice(0, segment.start) + replacement + processedMarkdown.slice(segment.end);
 
+		if (segment.type === "image") {
+			imageTasks.set(
+				marker,
+				limitImageFetch(() =>
+					resolveImageAsset(plugin, file, segment.target ?? "", segment.alt ?? ""),
+				),
+			);
+		}
+	}
+
+	const items: PublishItem[] = [];
+	for (let index = 0; index < segments.length; index += 1) {
+		const segment = segments[index];
+		if (!segment) {
+			continue;
+		}
+
+		const marker = `MPH_MARKER_${index + 1}`;
 		if (segment.type === "code") {
-			items.unshift({
+			items.push({
 				type: "code",
 				marker,
 				language: segment.language ?? "",
@@ -301,7 +366,7 @@ async function extractPublishItems(
 		}
 
 		if (segment.type === "divider") {
-			items.unshift({
+			items.push({
 				type: "divider",
 				marker,
 			});
@@ -309,7 +374,7 @@ async function extractPublishItems(
 		}
 
 		if (segment.type === "post") {
-			items.unshift({
+			items.push({
 				type: "post",
 				marker,
 				url: segment.url ?? "",
@@ -317,9 +382,9 @@ async function extractPublishItems(
 			continue;
 		}
 
-		const imageAsset = await resolveImageAsset(plugin, file, segment.target ?? "", segment.alt ?? "");
+		const imageAsset = await imageTasks.get(marker);
 		if (imageAsset) {
-			items.unshift({ type: "image", marker, ...imageAsset });
+			items.push({ type: "image", marker, ...imageAsset });
 		}
 	}
 
