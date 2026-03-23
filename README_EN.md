@@ -138,11 +138,14 @@ If the note frontmatter provides `title` and `cover`:
 
 ## Release development
 
-This repository includes GitHub Actions for automatic build and release.
+This repository is now used for the Obsidian plugin release and distribution flow.
+For day-to-day feature work, shared publishing logic, the VS Code host, and Claude skill maintenance, prefer [x-article-workspace](https://github.com/Icy-Cat/x-article-workspace).
+
+The GitHub Actions flow here remains focused on building and releasing the Obsidian plugin.
 
 Latest release: <https://github.com/Icy-Cat/x-article-in-obsidian/releases/latest>
 
-To publish a new version:
+To publish a new version of the Obsidian plugin:
 
 ```bash
 npm version patch

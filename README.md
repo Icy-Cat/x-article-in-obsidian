@@ -137,11 +137,14 @@ cover: ![[cover.png]]
 
 ## 发布开发
 
-这个仓库已经配置了 GitHub Actions 自动构建和发布。
+这个仓库现在用于 Obsidian 插件版本的发布与分发。
+日常功能开发、共享发布逻辑、VS Code 宿主和 Claude skill 维护，请优先在 [x-article-workspace](https://github.com/Icy-Cat/x-article-workspace) 中进行。
+
+这里保留了 Obsidian 插件视角的 GitHub Actions 自动构建和发布流程。
 
 最新发布版本：<https://github.com/Icy-Cat/x-article-in-obsidian/releases/latest>
 
-发布一个新版本时：
+如果要发布这个 Obsidian 插件的新版本：
 
 ```bash
 npm version patch
