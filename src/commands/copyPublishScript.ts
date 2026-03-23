@@ -1100,11 +1100,14 @@ function buildBrowserPublishFunction(
       const dialogs = Array.from(document.querySelectorAll("div[data-testid='sheetDialog']"))
         .filter((node) => isVisibleElement(node));
       const dialog =
-        dialogs.sort((left, right) => measureDistanceToRect(left, targetRect) - measureDistanceToRect(right, targetRect)).at(-1) ||
+        dialogs.sort((left, right) => measureDistanceToRect(left, targetRect) - measureDistanceToRect(right, targetRect))[0] ||
         dialogs.at(-1) ||
         null;
-      const input = dialog?.querySelector("input") || null;
-      if (input) return input;
+      const input =
+        dialog?.querySelector("input[type='file'], input[data-testid='fileInput']") ||
+        document.querySelector("input[type='file'], input[data-testid='fileInput']") ||
+        null;
+      if (input instanceof HTMLInputElement) return input;
       await sleep(150);
     }
     throw new Error("Media file input not found.");
@@ -1143,11 +1146,7 @@ function buildBrowserPublishFunction(
   async function insertImage(item, anchorInfo) {
     try {
       await openInsertMenu(["媒体", "Media", "media", "photo", "image"], anchorInfo);
-      await clickAnchorToken(anchorInfo.token);
-      await sleep(50);
       const input = await waitForFileInput(anchorInfo.rect);
-      await clickAnchorToken(anchorInfo.token);
-      await sleep(50);
       const file = base64ToFile(item.base64, item.fileName, item.mimeType);
       const data = new DataTransfer();
       data.items.add(file);
