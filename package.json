@@ -1,6 +1,6 @@
 {
 	"name": "x-article-in-obsidian",
-	"version": "1.0.11",
+	"version": "1.0.12",
 	"description": "Obsidian plugin for previewing the current Markdown note in an X Article-style sidebar.",
 	"main": "main.js",
 	"type": "module",
