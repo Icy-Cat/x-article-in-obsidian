@@ -38,6 +38,7 @@ type PublishPayload = {
 	items: PublishItem[];
 	title: string | null;
 	cover: PublishImageAsset | null;
+	autoApplyCover: boolean;
 };
 
 const IMAGE_FETCH_CONCURRENCY = 4;
@@ -63,6 +64,7 @@ export async function buildPublishScriptFromActiveNote(
 		payload.items,
 		payload.title,
 		payload.cover,
+		payload.autoApplyCover,
 	);
 }
 
@@ -76,6 +78,7 @@ export async function buildPublishFunctionFromActiveNote(
 		payload.items,
 		payload.title,
 		payload.cover,
+		payload.autoApplyCover,
 	);
 }
 
@@ -91,6 +94,7 @@ export async function buildPublishFunctionForNote(
 		payload.items,
 		payload.title,
 		payload.cover,
+		payload.autoApplyCover,
 	);
 }
 
@@ -124,6 +128,7 @@ async function buildPublishPayload(
 		items: extraction.items,
 		title,
 		cover,
+		autoApplyCover: plugin.settings.autoApplyCover,
 	};
 }
 
@@ -562,8 +567,9 @@ function buildBrowserPublishScript(
 	items: PublishItem[],
 	title?: string | null,
 	cover?: PublishImageAsset | null,
+	autoApplyCover = true,
 ): string {
-	return `(${buildBrowserPublishFunction(html, markdown, items, title, cover)})();`;
+	return `(${buildBrowserPublishFunction(html, markdown, items, title, cover, autoApplyCover)})();`;
 }
 
 function buildBrowserPublishFunction(
@@ -572,9 +578,10 @@ function buildBrowserPublishFunction(
 	items: PublishItem[],
 	title?: string | null,
 	cover?: PublishImageAsset | null,
+	autoApplyCover = true,
 ): string {
 	return `async () => {
-  const payload = ${JSON.stringify({ html, markdown, items, title: title ?? null, cover: cover ?? null }, null, 2)};
+  const payload = ${JSON.stringify({ html, markdown, items, title: title ?? null, cover: cover ?? null, autoApplyCover }, null, 2)};
 
   const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -1289,6 +1296,13 @@ function buildBrowserPublishFunction(
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
     await waitForMediaUpload(15000);
+    if (payload.autoApplyCover !== false) {
+      const applyButton = await waitForSelector("button[data-testid='applyButton']");
+      if (applyButton instanceof HTMLElement) {
+        applyButton.click();
+        await sleep(400);
+      }
+    }
     await sleep(600);
   }
 

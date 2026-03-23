@@ -13,6 +13,7 @@ export interface XArticlePreviewSettings {
 	playwrightToken: string;
 	enableDebugLog: boolean;
 	autoRefresh: boolean;
+	autoApplyCover: boolean;
 	stripFrontmatter: boolean;
 	useFilenameAsTitle: boolean;
 	showDraftNotice: boolean;
@@ -25,6 +26,7 @@ export const DEFAULT_SETTINGS: XArticlePreviewSettings = {
 	playwrightToken: "",
 	enableDebugLog: false,
 	autoRefresh: true,
+	autoApplyCover: true,
 	stripFrontmatter: true,
 	useFilenameAsTitle: false,
 	showDraftNotice: true,
@@ -124,6 +126,16 @@ export class XArticleSettingTab extends PluginSettingTab {
 				button
 					.setButtonText(this.plugin.t("settings.nodejs.link"))
 					.onClick(() => window.open(NODEJS_DOWNLOAD_URL, "_blank", "noopener,noreferrer")),
+			);
+
+		new Setting(containerEl)
+			.setName(this.plugin.t("settings.autoApplyCover.name"))
+			.setDesc(this.plugin.t("settings.autoApplyCover.desc"))
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.autoApplyCover).onChange((value) => {
+					this.plugin.settings.autoApplyCover = value;
+					void this.plugin.saveSettings();
+				}),
 			);
 
 		new Setting(containerEl)

@@ -50,6 +50,8 @@ export type TranslationKey =
 	| "settings.nodejs.name"
 	| "settings.nodejs.desc"
 	| "settings.nodejs.link"
+	| "settings.autoApplyCover.name"
+	| "settings.autoApplyCover.desc"
 	| "settings.debugLog.name"
 	| "settings.debugLog.desc"
 	| "settings.logFile.name"
@@ -142,6 +144,9 @@ const translations: Translations = {
 		"settings.nodejs.name": "Node.js",
 		"settings.nodejs.desc": "Browser publishing requires a local Node.js environment. Open the official download page here.",
 		"settings.nodejs.link": "Download Node.js",
+		"settings.autoApplyCover.name": "Auto-apply cover",
+		"settings.autoApplyCover.desc":
+			"After the cover upload finishes, automatically click Apply in the X cover dialog.",
 		"settings.debugLog.name": "Enable debug log",
 		"settings.debugLog.desc": "Write detailed local logs for browser publishing diagnostics. Keep this off unless you are troubleshooting.",
 		"settings.logFile.name": "Publish log file",
@@ -232,6 +237,8 @@ const translations: Translations = {
 		"settings.nodejs.name": "Node.js",
 		"settings.nodejs.desc": "通过浏览器发布需要本地 Node.js 环境。可在这里打开 Node.js 官网下载页。",
 		"settings.nodejs.link": "下载 Node.js",
+		"settings.autoApplyCover.name": "自动应用封面",
+		"settings.autoApplyCover.desc": "封面上传完成后，自动点击 X 封面弹窗里的“应用”按钮。",
 		"settings.debugLog.name": "开启调试日志",
 		"settings.debugLog.desc": "记录浏览器发布的详细本地诊断日志。仅在排查问题时建议开启。",
 		"settings.logFile.name": "发布日志文件",
