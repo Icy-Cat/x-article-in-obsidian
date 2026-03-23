@@ -4,6 +4,9 @@
 
 Render the current Markdown note into an X Article-style reading sidebar, so you can write and review the final reading feel at the same time.
 
+> The main development repository has moved to [x-article-workspace](https://github.com/Icy-Cat/x-article-workspace).
+> This repository remains focused on the Obsidian plugin release and docs, while shared logic, the VS Code host, and the Claude skill are now maintained in the workspace monorepo.
+
 <p>
   <a href="./README.md">简体中文</a>
 </p>

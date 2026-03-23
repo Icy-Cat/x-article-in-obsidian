@@ -4,6 +4,9 @@
 
 把当前 Markdown 笔记实时渲染成接近 X Article 的阅读侧栏，让你一边写，一边看最终阅读效果。
 
+> 主开发仓库已经迁移到 [x-article-workspace](https://github.com/Icy-Cat/x-article-workspace)。
+> 这个仓库继续保留 Obsidian 插件视角的发布与文档；共享逻辑、VS Code 宿主和 Claude skill 现在统一在 workspace 中维护。
+
 <p>
   <a href="./README_EN.md">English</a>
 </p>
