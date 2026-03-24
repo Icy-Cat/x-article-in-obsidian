@@ -472,7 +472,7 @@ function resolveExecutablePath(runtime: McpRuntimeConfig): McpRuntimeConfig {
 	const fs = req("node:fs") as typeof import("node:fs");
 	const processRef = req("node:process") as typeof import("node:process");
 
-	const candidates = buildExecutableCandidates(runtime.command, path, os, processRef);
+	const candidates = buildExecutableCandidates(runtime.command, path, os, fs, processRef);
 	for (const candidate of candidates) {
 		if (!path.isAbsolute(candidate)) {
 			continue;
@@ -492,12 +492,13 @@ function buildExecutableCandidates(
 	command: string,
 	path: typeof import("node:path"),
 	os: typeof import("node:os"),
+	fs: typeof import("node:fs"),
 	processRef: typeof import("node:process"),
 ): string[] {
 	const candidates: string[] = [];
 	const lower = command.toLowerCase();
 	const isWindows = processRef.platform === "win32";
-	const pathEntries = (processRef.env.PATH ?? "").split(path.delimiter).filter((entry) => entry.length > 0);
+	const pathEntries = getExecutableSearchDirs(path, os, fs, processRef);
 	const hasExtension = /\.[a-z0-9]+$/i.test(command);
 
 	if (path.isAbsolute(command)) {
@@ -520,20 +521,104 @@ function buildExecutableCandidates(
 		}
 	}
 
-	if (lower === "npx" || lower === "npx.cmd") {
-		const appData = processRef.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming");
-		candidates.push(path.join(appData, "npm", "npx.cmd"));
-		if (!isWindows) {
-			candidates.push(path.join(appData, "npm", "npx"));
+	if (isWindows) {
+		const appData = getEnvValue(processRef, "APPDATA") ?? path.join(os.homedir(), "AppData", "Roaming");
+		const programFiles = getEnvValue(processRef, "ProgramFiles") ?? "C:\\Program Files";
+		const programFilesX86 = getEnvValue(processRef, "ProgramFiles(x86)") ?? "C:\\Program Files (x86)";
+		if (lower === "npx" || lower === "npx.cmd") {
+			candidates.push(path.join(appData, "npm", "npx.cmd"));
+		}
+		if (lower === "npm" || lower === "npm.cmd") {
+			candidates.push(path.join(appData, "npm", "npm.cmd"));
+		}
+		if (lower === "node" || lower === "node.exe") {
+			candidates.push(path.join(programFiles, "nodejs", "node.exe"));
+			candidates.push(path.join(programFilesX86, "nodejs", "node.exe"));
+		}
+		if (lower === "npm" || lower === "npm.cmd" || lower === "npx" || lower === "npx.cmd") {
+			candidates.push(path.join(programFiles, "nodejs", `${command.replace(/\.cmd$/i, "")}.cmd`));
+			candidates.push(path.join(programFilesX86, "nodejs", `${command.replace(/\.cmd$/i, "")}.cmd`));
 		}
 	}
 
-	if (lower === "node" || lower === "node.exe") {
-		const programFiles = processRef.env.ProgramFiles ?? "C:\\Program Files";
-		candidates.push(path.join(programFiles, "nodejs", "node.exe"));
+	return Array.from(new Set(candidates));
+}
+
+function getEnvValue(processRef: typeof import("node:process"), name: string): string | undefined {
+	const direct = processRef.env[name];
+	if (typeof direct === "string" && direct.length > 0) {
+		return direct;
 	}
 
-	return Array.from(new Set(candidates));
+	const matchedKey = Object.keys(processRef.env).find((key) => key.toLowerCase() === name.toLowerCase());
+	if (!matchedKey) {
+		return undefined;
+	}
+	const value = processRef.env[matchedKey];
+	return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function getExecutableSearchDirs(
+	path: typeof import("node:path"),
+	os: typeof import("node:os"),
+	fs: typeof import("node:fs"),
+	processRef: typeof import("node:process"),
+): string[] {
+	const dirs = new Set<string>();
+	const addDir = (dir: string | undefined) => {
+		if (!dir) {
+			return;
+		}
+		const normalized = dir.trim();
+		if (!normalized) {
+			return;
+		}
+		dirs.add(normalized);
+	};
+	const addExistingChildDirs = (baseDir: string, childDirName: string) => {
+		if (!fs.existsSync(baseDir)) {
+			return;
+		}
+		try {
+			const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+			for (const entry of entries) {
+				if (!entry.isDirectory()) {
+					continue;
+				}
+				addDir(path.join(baseDir, entry.name, childDirName));
+			}
+		} catch {
+			// Ignore unreadable version-manager directories.
+		}
+	};
+
+	const envPath = getEnvValue(processRef, "PATH");
+	for (const entry of (envPath ?? "").split(path.delimiter)) {
+		addDir(entry);
+	}
+
+	const home = os.homedir();
+	if (processRef.platform === "win32") {
+		addDir(path.join(getEnvValue(processRef, "APPDATA") ?? path.join(home, "AppData", "Roaming"), "npm"));
+		addDir(path.join(getEnvValue(processRef, "LOCALAPPDATA") ?? path.join(home, "AppData", "Local"), "Volta", "bin"));
+		addDir(path.join(getEnvValue(processRef, "ProgramFiles") ?? "C:\\Program Files", "nodejs"));
+		addDir(path.join(getEnvValue(processRef, "ProgramFiles(x86)") ?? "C:\\Program Files (x86)", "nodejs"));
+	} else {
+		addDir("/opt/homebrew/bin");
+		addDir("/usr/local/bin");
+		addDir("/opt/local/bin");
+		addDir("/usr/local/sbin");
+		addDir(path.join(home, ".volta", "bin"));
+		addDir(path.join(home, ".fnm"));
+		addDir(path.join(home, ".asdf", "shims"));
+		addDir(path.join(home, ".nodenv", "shims"));
+		addDir(path.join(home, ".n", "bin"));
+		addDir(path.join(home, ".local", "bin"));
+		addExistingChildDirs(path.join(home, ".nvm", "versions", "node"), "bin");
+		addExistingChildDirs(path.join(home, ".fnm", "node-versions"), path.join("installation", "bin"));
+	}
+
+	return Array.from(dirs);
 }
 
 function inspectLocalNodeEnvironment(): {
@@ -549,9 +634,10 @@ function inspectLocalNodeEnvironment(): {
 		const fs = req("node:fs") as typeof import("node:fs");
 		const processRef = req("node:process") as typeof import("node:process");
 		const names = ["node", "npm", "npx"];
+		const pathEntries = getExecutableSearchDirs(path, os, fs, processRef);
 
 		const tools = names.map((name) => {
-			const candidates = buildExecutableCandidates(name, path, os, processRef);
+			const candidates = buildExecutableCandidates(name, path, os, fs, processRef);
 			const resolved = candidates.find((candidate) => path.isAbsolute(candidate) && fs.existsSync(candidate)) ?? null;
 			return {
 				name,
@@ -563,9 +649,7 @@ function inspectLocalNodeEnvironment(): {
 		return {
 			available: tools.every((tool) => Boolean(tool.resolved)),
 			tools,
-			pathEntries: (processRef.env.PATH ?? "")
-				.split(path.delimiter)
-				.filter((entry) => entry.length > 0),
+			pathEntries,
 		};
 	} catch (error) {
 		return {
