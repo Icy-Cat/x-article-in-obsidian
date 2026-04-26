@@ -1,9 +1,38 @@
 function deleteMarkerFromTextNode(text, marker) {
-  const offset = text.indexOf(marker);
+  const offset = findExactTokenOffset(text, marker);
   if (offset === -1) {
     throw new Error(`Marker not found: ${marker}`);
   }
   return text.slice(0, offset) + text.slice(offset + marker.length);
+}
+
+function isTokenBoundaryChar(char) {
+  return !char || !/[A-Za-z0-9_]/.test(char);
+}
+
+function findExactTokenOffset(text, token) {
+  if (!text || !token) {
+    return -1;
+  }
+
+  let searchFrom = 0;
+  while (searchFrom < text.length) {
+    const offset = text.indexOf(token, searchFrom);
+    if (offset === -1) {
+      return -1;
+    }
+
+    const before = offset > 0 ? text[offset - 1] : "";
+    const afterIndex = offset + token.length;
+    const after = afterIndex < text.length ? text[afterIndex] : "";
+    if (isTokenBoundaryChar(before) && isTokenBoundaryChar(after)) {
+      return offset;
+    }
+
+    searchFrom = offset + token.length;
+  }
+
+  return -1;
 }
 
 function removeResidualMarkers(text) {
@@ -62,14 +91,36 @@ const deleteCases = [
     marker: "MPH_MARKER_14",
     expected: "Random text block C.\n",
   },
+  {
+    label: "marker 2 does not match marker 20",
+    input: "before\nMPH_MARKER_20\nafter",
+    marker: "MPH_MARKER_2",
+    expectedError: true,
+  },
+  {
+    label: "marker 20 still matches exactly",
+    input: "before\nMPH_MARKER_20\nafter",
+    marker: "MPH_MARKER_20",
+    expected: "before\n\nafter",
+  },
 ];
 
 for (const testCase of deleteCases) {
-  assertEqual(
-    deleteMarkerFromTextNode(testCase.input, testCase.marker),
-    testCase.expected,
-    testCase.label,
-  );
+  if (testCase.expectedError) {
+    let threw = false;
+    try {
+      deleteMarkerFromTextNode(testCase.input, testCase.marker);
+    } catch {
+      threw = true;
+    }
+    assertEqual(threw, true, testCase.label);
+  } else {
+    assertEqual(
+      deleteMarkerFromTextNode(testCase.input, testCase.marker),
+      testCase.expected,
+      testCase.label,
+    );
+  }
 }
 
 const cleanupCases = [

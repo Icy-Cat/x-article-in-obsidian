@@ -691,7 +691,7 @@ function buildBrowserPublishFunction(
     const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
     let current;
     while ((current = walker.nextNode())) {
-      const offset = current.textContent.indexOf(marker);
+      const offset = findExactTokenOffset(current.textContent || "", marker);
       if (offset >= 0) {
         return {
           node: current,
@@ -704,15 +704,63 @@ function buildBrowserPublishFunction(
     return null;
   }
 
+  function isTokenBoundaryChar(char) {
+    return !char || !/[A-Za-z0-9_]/.test(char);
+  }
+
+  function findExactTokenOffset(text, token) {
+    if (!text || !token) {
+      return -1;
+    }
+
+    let searchFrom = 0;
+    while (searchFrom < text.length) {
+      const offset = text.indexOf(token, searchFrom);
+      if (offset < 0) {
+        return -1;
+      }
+
+      const before = offset > 0 ? text[offset - 1] : "";
+      const afterIndex = offset + token.length;
+      const after = afterIndex < text.length ? text[afterIndex] : "";
+      if (isTokenBoundaryChar(before) && isTokenBoundaryChar(after)) {
+        return offset;
+      }
+
+      searchFrom = offset + token.length;
+    }
+
+    return -1;
+  }
+
   function deleteMarkerFromTextNode(node, marker, offset) {
-    const text = node.textContent || "";
-    const markerOffset = typeof offset === "number" ? offset : text.indexOf(marker);
+    const markerOffset = typeof offset === "number" ? offset : findExactTokenOffset(node.textContent || "", marker);
     if (markerOffset < 0) {
       return false;
     }
 
-    node.textContent = text.slice(0, markerOffset) + text.slice(markerOffset + marker.length);
-    return true;
+    const editor = findEditor();
+    const selection = window.getSelection();
+    if (!editor || !selection) {
+      return false;
+    }
+
+    try {
+      const range = document.createRange();
+      range.setStart(node, markerOffset);
+      range.setEnd(node, markerOffset + marker.length);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      editor.focus();
+
+      const deleted =
+        document.execCommand("delete", false) ||
+        document.execCommand("insertText", false, "");
+      selection.removeAllRanges();
+      return Boolean(deleted);
+    } catch {
+      return false;
+    }
   }
 
   function clickAt(rect) {
@@ -797,7 +845,7 @@ function buildBrowserPublishFunction(
     const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
     let current;
     while ((current = walker.nextNode())) {
-      const offset = current.textContent.indexOf(token);
+      const offset = findExactTokenOffset(current.textContent || "", token);
       if (offset >= 0) {
         return { node: current, offset };
       }
@@ -826,20 +874,17 @@ function buildBrowserPublishFunction(
     }
   }
 
-  function removeResidualMarkers() {
-    const editor = findEditor();
-    if (!editor) return;
-
-    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-    const markerPattern = /(?:^|\\s)MPH_MARKER_\\d+(?=\\s|$)/g;
+  function removeResidualMarkers(items) {
     const touchedBlocks = new Set();
-    let current;
-    while ((current = walker.nextNode())) {
-      const text = current.textContent || "";
-      const cleaned = text.replace(markerPattern, " ").replace(/\\s{2,}/g, " ").trim();
-      if (cleaned !== text.trim()) {
-        current.textContent = cleaned;
-        touchedBlocks.add(current.parentElement?.closest("[data-block='true']"));
+    for (const item of items) {
+      const found = findAnchorToken(item.marker);
+      if (!found) {
+        continue;
+      }
+
+      const deleted = deleteMarkerFromTextNode(found.node, item.marker, found.offset);
+      if (deleted) {
+        touchedBlocks.add(found.node.parentElement?.closest("[data-block='true']"));
       }
     }
 
@@ -1312,6 +1357,7 @@ function buildBrowserPublishFunction(
     await insertArticleHtml();
     await sleep(800);
     let processedItems = 0;
+    const processedMarkers = [];
 
     for (const item of payload.items) {
       const anchorInfo = await focusMarker(item.marker);
@@ -1331,10 +1377,11 @@ function buildBrowserPublishFunction(
       }
 
       processedItems += 1;
+      processedMarkers.push(item);
       await sleep(500);
     }
 
-    removeResidualMarkers();
+    removeResidualMarkers(processedMarkers);
     await uploadCover();
     console.log("X publish script finished.");
     return { ok: true, processedItems, totalItems: payload.items.length };
