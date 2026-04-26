@@ -558,6 +558,96 @@ function getEnvValue(processRef: typeof import("node:process"), name: string): s
 	return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
+type ShellPathProbe = {
+	skipped: boolean;
+	shell: string | null;
+	method: string | null;
+	entries: string[];
+	error: string | null;
+};
+
+let cachedShellPathProbe: ShellPathProbe | null = null;
+
+function probeLoginShellPath(
+	path: typeof import("node:path"),
+	processRef: typeof import("node:process"),
+): ShellPathProbe {
+	if (cachedShellPathProbe) {
+		return cachedShellPathProbe;
+	}
+
+	const probe: ShellPathProbe = {
+		skipped: false,
+		shell: null,
+		method: null,
+		entries: [],
+		error: null,
+	};
+
+	if (processRef.platform === "win32") {
+		probe.skipped = true;
+		cachedShellPathProbe = probe;
+		return probe;
+	}
+
+	const shell = processRef.env.SHELL || (processRef.platform === "darwin" ? "/bin/zsh" : "/bin/bash");
+	probe.shell = shell;
+
+	try {
+		const req = getNodeRequire();
+		const childProcess = req("node:child_process") as typeof import("node:child_process");
+
+		const shellLower = shell.toLowerCase();
+		const isFish = shellLower.endsWith("/fish") || shellLower.endsWith("fish");
+
+		const attempts: Array<{ args: string[]; method: string }> = isFish
+			? [
+					{ args: ["-ilc", "env"], method: "fish-interactive-login" },
+					{ args: ["-lc", "env"], method: "fish-login" },
+				]
+			: [
+					{ args: ["-ilc", "env"], method: "interactive-login" },
+					{ args: ["-lc", "env"], method: "login" },
+				];
+
+		for (const attempt of attempts) {
+			try {
+				const output = childProcess.execFileSync(shell, attempt.args, {
+					encoding: "utf8",
+					timeout: 3000,
+					maxBuffer: 1024 * 1024,
+					stdio: ["ignore", "pipe", "ignore"],
+				});
+				const pathLine = output
+					.split("\n")
+					.find((line) => /^PATH=/.test(line));
+				if (!pathLine) {
+					continue;
+				}
+				const realPath = pathLine.slice("PATH=".length);
+				const entries = realPath
+					.split(path.delimiter)
+					.map((entry) => entry.trim())
+					.filter((entry) => entry.length > 0);
+				if (entries.length === 0) {
+					continue;
+				}
+				probe.method = attempt.method;
+				probe.entries = entries;
+				cachedShellPathProbe = probe;
+				return probe;
+			} catch (error) {
+				probe.error = error instanceof Error ? error.message : String(error);
+			}
+		}
+	} catch (error) {
+		probe.error = error instanceof Error ? error.message : String(error);
+	}
+
+	cachedShellPathProbe = probe;
+	return probe;
+}
+
 function getExecutableSearchDirs(
 	path: typeof import("node:path"),
 	os: typeof import("node:os"),
@@ -597,6 +687,12 @@ function getExecutableSearchDirs(
 		addDir(entry);
 	}
 
+	if (processRef.platform !== "win32") {
+		for (const entry of probeLoginShellPath(path, processRef).entries) {
+			addDir(entry);
+		}
+	}
+
 	const home = os.homedir();
 	if (processRef.platform === "win32") {
 		addDir(path.join(getEnvValue(processRef, "APPDATA") ?? path.join(home, "AppData", "Roaming"), "npm"));
@@ -614,8 +710,12 @@ function getExecutableSearchDirs(
 		addDir(path.join(home, ".nodenv", "shims"));
 		addDir(path.join(home, ".n", "bin"));
 		addDir(path.join(home, ".local", "bin"));
+		addDir(path.join(home, ".local", "share", "mise", "shims"));
+		addDir(path.join(home, ".local", "share", "rtx", "shims"));
 		addExistingChildDirs(path.join(home, ".nvm", "versions", "node"), "bin");
 		addExistingChildDirs(path.join(home, ".fnm", "node-versions"), path.join("installation", "bin"));
+		addExistingChildDirs(path.join(home, ".local", "share", "mise", "installs", "node"), "bin");
+		addExistingChildDirs(path.join(home, ".local", "share", "rtx", "installs", "node"), "bin");
 	}
 
 	return Array.from(dirs);
@@ -623,8 +723,10 @@ function getExecutableSearchDirs(
 
 function inspectLocalNodeEnvironment(): {
 	available: boolean;
+	platform: string;
 	tools: Array<{ name: string; resolved: string | null; candidates: string[] }>;
 	pathEntries: string[];
+	shellPathProbe: ShellPathProbe;
 	error?: string;
 } {
 	try {
@@ -635,6 +737,7 @@ function inspectLocalNodeEnvironment(): {
 		const processRef = req("node:process") as typeof import("node:process");
 		const names = ["node", "npm", "npx"];
 		const pathEntries = getExecutableSearchDirs(path, os, fs, processRef);
+		const shellPathProbe = probeLoginShellPath(path, processRef);
 
 		const tools = names.map((name) => {
 			const candidates = buildExecutableCandidates(name, path, os, fs, processRef);
@@ -648,14 +751,24 @@ function inspectLocalNodeEnvironment(): {
 
 		return {
 			available: tools.every((tool) => Boolean(tool.resolved)),
+			platform: processRef.platform,
 			tools,
 			pathEntries,
+			shellPathProbe,
 		};
 	} catch (error) {
 		return {
 			available: false,
+			platform: "unknown",
 			tools: [],
 			pathEntries: [],
+			shellPathProbe: {
+				skipped: true,
+				shell: null,
+				method: null,
+				entries: [],
+				error: null,
+			},
 			...(error instanceof Error ? { error: error.message } : { error: String(error) }),
 		};
 	}
