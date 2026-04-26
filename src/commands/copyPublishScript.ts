@@ -746,12 +746,17 @@ function buildBrowserPublishFunction(
     }
 
     try {
+      // Focus first, then set the selection. Focusing after addRange() resets
+      // the selection in some contenteditable implementations and the
+      // subsequent execCommand becomes a silent no-op — that was the cause of
+      // residual markers near just-inserted images, where focus had been
+      // stolen by the upload dialog.
+      editor.focus();
       const range = document.createRange();
       range.setStart(node, markerOffset);
       range.setEnd(node, markerOffset + marker.length);
       selection.removeAllRanges();
       selection.addRange(range);
-      editor.focus();
 
       const deleted =
         document.execCommand("delete", false) ||
