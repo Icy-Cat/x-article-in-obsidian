@@ -48,6 +48,65 @@ function assertEqual(actual, expected, label) {
   }
 }
 
+const offsetCases = [
+  {
+    label: "marker at offset 0 with empty before-boundary",
+    text: "MPH_MARKER_3 trailing",
+    token: "MPH_MARKER_3",
+    expected: 0,
+  },
+  {
+    label: "marker at end-of-text with empty after-boundary",
+    text: "leading MPH_MARKER_4",
+    token: "MPH_MARKER_4",
+    expected: "leading ".length,
+  },
+  {
+    label: "underscore suffix breaks boundary so MPH_MARKER_2 does not match MPH_MARKER_2_",
+    text: "x MPH_MARKER_2_ y",
+    token: "MPH_MARKER_2",
+    expected: -1,
+  },
+  {
+    label: "CJK punctuation around marker still counts as boundary",
+    text: "前缀。MPH_MARKER_9，后缀",
+    token: "MPH_MARKER_9",
+    expected: "前缀。".length,
+  },
+  {
+    label: "tab and newline both count as boundary",
+    text: "alpha\tMPH_MARKER_10\nbeta",
+    token: "MPH_MARKER_10",
+    expected: "alpha\t".length,
+  },
+  {
+    label: "empty text returns -1",
+    text: "",
+    token: "MPH_MARKER_1",
+    expected: -1,
+  },
+  {
+    label: "empty token returns -1",
+    text: "MPH_MARKER_1",
+    token: "",
+    expected: -1,
+  },
+  {
+    label: "skips a non-boundary collision then finds the real one further along",
+    text: "MPH_MARKER_20 then MPH_MARKER_2 standalone",
+    token: "MPH_MARKER_2",
+    expected: "MPH_MARKER_20 then ".length,
+  },
+];
+
+for (const testCase of offsetCases) {
+  assertEqual(
+    findExactTokenOffset(testCase.text, testCase.token),
+    testCase.expected,
+    `offset: ${testCase.label}`,
+  );
+}
+
 const deleteCases = [
   {
     label: "numeric line before marker is preserved",
@@ -153,6 +212,59 @@ const cleanupCases = [
 
 for (const testCase of cleanupCases) {
   assertEqual(removeResidualMarkers(testCase.input), testCase.expected, testCase.label);
+}
+
+// Consistency check — make sure the function inlined into the browser publish
+// script (src/commands/copyPublishScript.ts) matches the one in this file.
+// If a future edit touches one but not the other, this fails loudly.
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const browserScriptSource = readFileSync(
+  resolve(here, "..", "src", "commands", "copyPublishScript.ts"),
+  "utf8",
+);
+
+function extractInlinedFunction(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  if (start === -1) {
+    throw new Error(`Inlined function not found in copyPublishScript.ts: ${name}`);
+  }
+
+  let depth = 0;
+  let bodyStart = -1;
+  for (let cursor = start; cursor < source.length; cursor += 1) {
+    const char = source[cursor];
+    if (char === "{") {
+      if (depth === 0) {
+        bodyStart = cursor;
+      }
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0 && bodyStart !== -1) {
+        return source.slice(start, cursor + 1);
+      }
+    }
+  }
+  throw new Error(`Could not find balanced body for ${name}`);
+}
+
+const inlinedSources = [
+  extractInlinedFunction(browserScriptSource, "isTokenBoundaryChar"),
+  extractInlinedFunction(browserScriptSource, "findExactTokenOffset"),
+].join("\n");
+
+const Inlined = new Function(`${inlinedSources}\nreturn { isTokenBoundaryChar, findExactTokenOffset };`)();
+
+for (const testCase of offsetCases) {
+  assertEqual(
+    Inlined.findExactTokenOffset(testCase.text, testCase.token),
+    testCase.expected,
+    `inlined-offset: ${testCase.label}`,
+  );
 }
 
 console.log("marker-regression-check: ok");
