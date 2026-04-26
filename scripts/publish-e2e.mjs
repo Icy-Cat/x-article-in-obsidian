@@ -17,6 +17,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import zlib from "node:zlib";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const isWindows = process.platform === "win32";
@@ -67,9 +68,64 @@ if (hasEditor !== "true") {
 }
 console.log("Editor present. Building payload...");
 
+// --- PNG helpers (generate small, visibly coloured test images) ------------
+const _crcTable = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n += 1) {
+    let c = n;
+    for (let k = 0; k < 8; k += 1) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c;
+  }
+  return t;
+})();
+function crc32(buf) {
+  let c = 0xffffffff;
+  for (const b of buf) c = (c >>> 8) ^ _crcTable[(c ^ b) & 0xff];
+  return (c ^ 0xffffffff) >>> 0;
+}
+function pngChunk(type, data) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length, 0);
+  const typeBuf = Buffer.from(type, "ascii");
+  const body = Buffer.concat([typeBuf, data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(body), 0);
+  return Buffer.concat([len, body, crc]);
+}
+function makeColorPng(width, height, r, g, b) {
+  const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;   // bit depth
+  ihdr[9] = 2;   // color type: RGB
+  ihdr[10] = 0;
+  ihdr[11] = 0;
+  ihdr[12] = 0;
+  const stride = width * 3 + 1;
+  const raw = Buffer.alloc(stride * height);
+  for (let y = 0; y < height; y += 1) {
+    raw[y * stride] = 0;
+    for (let x = 0; x < width; x += 1) {
+      raw[y * stride + 1 + x * 3] = r;
+      raw[y * stride + 2 + x * 3] = g;
+      raw[y * stride + 3 + x * 3] = b;
+    }
+  }
+  const idat = zlib.deflateSync(raw);
+  return Buffer.concat([sig, pngChunk("IHDR", ihdr), pngChunk("IDAT", idat), pngChunk("IEND", Buffer.alloc(0))]);
+}
+const PALETTE = [
+  [220,  60,  60], [60, 180,  90], [60, 110, 220], [220, 170,  40],
+  [170,  60, 200], [40, 200, 200], [240, 130,  60], [120, 200,  80],
+  [80,  130, 240], [220,  90, 160],
+];
+function imageBase64(idx) {
+  const [r, g, b] = PALETTE[idx % PALETTE.length];
+  return makeColorPng(160, 160, r, g, b).toString("base64");
+}
+
 // --- build payload ----------------------------------------------------------
-const TINY_PNG_B64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
 const paragraphs = [
   "First paragraph: this is an automated end-to-end test article (do not publish).",
@@ -103,7 +159,7 @@ while (imgPlaced < imageCount || pIdx < paragraphs.length) {
       alt: `e2e-${imgPlaced + 1}`,
       fileName: `e2e-${imgPlaced + 1}.png`,
       mimeType: "image/png",
-      base64: TINY_PNG_B64,
+      base64: imageBase64(imgPlaced),
     });
     imgPlaced += 1;
   }
