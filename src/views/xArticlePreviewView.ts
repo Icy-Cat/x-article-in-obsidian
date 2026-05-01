@@ -27,6 +27,7 @@ export class XArticlePreviewView extends ItemView {
 	private noticeEl!: HTMLDivElement;
 	private articleEl!: HTMLDivElement;
 	private publishButtonEl!: HTMLButtonElement;
+	private formatterButtonEl!: HTMLButtonElement;
 	private refreshButtonEl!: HTMLButtonElement;
 	private isPublishing = false;
 	private refreshToken = 0;
@@ -70,6 +71,14 @@ export class XArticlePreviewView extends ItemView {
 		});
 		this.publishButtonEl.addEventListener("click", () => {
 			void this.publish();
+		});
+
+		this.formatterButtonEl = this.toolbarEl.createEl("button", {
+			cls: "x-article-toolbar__button",
+			text: this.plugin.t("view.addFormatter"),
+		});
+		this.formatterButtonEl.addEventListener("click", () => {
+			void this.addFormatterField();
 		});
 
 		this.heroEl = chromeEl.createDiv({ cls: "x-article-hero" });
@@ -220,11 +229,60 @@ export class XArticlePreviewView extends ItemView {
 		}
 	}
 
+	private async addFormatterField(): Promise<void> {
+		const context = await this.getTargetContext();
+		if (!context) {
+			new Notice(this.plugin.t("error.openMarkdownFirst"));
+			return;
+		}
+
+		let added = false;
+		try {
+			await this.app.fileManager.processFrontMatter(context.file, (frontmatter) => {
+				let formatter = frontmatter.formatter;
+				if (typeof formatter === "string" && formatter.trim().length === 0) {
+					formatter = undefined;
+				}
+
+				if (formatter === undefined || formatter === null) {
+					formatter = {};
+					frontmatter.formatter = formatter;
+					added = true;
+				}
+
+				if (!isFrontmatterObject(formatter)) {
+					throw new Error("formatter frontmatter field is not an object.");
+				}
+
+				if (!Object.prototype.hasOwnProperty.call(formatter, "title")) {
+					formatter.title = "";
+					added = true;
+				}
+				if (!Object.prototype.hasOwnProperty.call(formatter, "cover")) {
+					formatter.cover = "";
+					added = true;
+				}
+			});
+
+			new Notice(
+				this.plugin.t(added ? "notice.formatterAdded" : "notice.formatterExists"),
+			);
+			if (added) {
+				await this.refresh();
+			}
+		} catch (error) {
+			console.error("Failed to add formatter frontmatter field", error);
+			new Notice(this.plugin.t("notice.formatterFailed"));
+		}
+	}
+
 	private syncActionButtons(): void {
 		this.publishButtonEl.disabled = this.isPublishing;
+		this.formatterButtonEl.disabled = this.isPublishing;
 		this.publishButtonEl.setText(
 			this.plugin.t(this.isPublishing ? "view.publishing" : "view.publish"),
 		);
+		this.formatterButtonEl.setText(this.plugin.t("view.addFormatter"));
 	}
 
 	private async getTargetContext(): Promise<{ file: TFile; content: string } | null> {
@@ -253,7 +311,7 @@ export class XArticlePreviewView extends ItemView {
 
 	private renderHeroCard(file: TFile): void {
 		const title =
-			this.getFrontmatterString(file, ["title", "Title"]) ||
+			this.getArticleFrontmatterString(file, ["title", "Title"]) ||
 			this.articleEl.querySelector(".longform-header-one")?.textContent?.trim() ||
 			this.articleEl.querySelector(".longform-header-two")?.textContent?.trim() ||
 			file.basename;
@@ -299,8 +357,24 @@ export class XArticlePreviewView extends ItemView {
 		return null;
 	}
 
+	private getArticleFrontmatterString(file: TFile, keys: string[]): string | null {
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter as
+			| Record<string, unknown>
+			| undefined;
+		const formatter = frontmatter?.formatter;
+
+		if (isFrontmatterObject(formatter)) {
+			const formatterValue = getStringFromRecord(formatter, keys);
+			if (formatterValue) {
+				return formatterValue;
+			}
+		}
+
+		return this.getFrontmatterString(file, keys);
+	}
+
 	private resolveFrontmatterCover(file: TFile, keys: string[]): string | null {
-		const rawCover = this.getFrontmatterString(file, keys);
+		const rawCover = this.getArticleFrontmatterString(file, keys);
 		if (!rawCover) {
 			return null;
 		}
@@ -483,4 +557,19 @@ export class XArticlePreviewView extends ItemView {
 		const ratio = this.sourceScrollEl.scrollTop / sourceScrollable;
 		this.contentEl.scrollTop = previewScrollable * ratio;
 	}
+}
+
+function isFrontmatterObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getStringFromRecord(record: Record<string, unknown>, keys: string[]): string | null {
+	for (const key of keys) {
+		const value = record[key];
+		if (typeof value === "string" && value.trim().length > 0) {
+			return value.trim();
+		}
+	}
+
+	return null;
 }

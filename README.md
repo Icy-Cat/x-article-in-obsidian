@@ -70,7 +70,8 @@ npm run build
 - 滚动同步
 - 独立 X 链接富预览
 - 代码块样式和复制按钮
-- frontmatter 中 `title` / `cover` 优先控制头图标题与封面
+- frontmatter 中 `formatter.title` / `formatter.cover` 优先控制头图标题与封面；旧的顶层 `title` / `cover` 仍然兼容
+- 通过预览窗口的 **添加 formatter** 按钮，为当前 Markdown 自动补充 `formatter.title` 和 `formatter.cover` 字段，方便你在笔记属性里自行填写
 
 首次安装后，插件还会弹出一个快速上手引导。你也可以随时通过命令面板中的 **打开快速使用指南** 再次查看。
 
@@ -78,8 +79,9 @@ npm run build
 
 ```md
 ---
-title: 文章标题
-cover: ![[cover.png]]
+formatter:
+  title: 文章标题
+  cover: ![[cover.png]]
 ---
 ```
 
@@ -145,11 +147,13 @@ cover: ![[cover.png]]
 
 如果出现 `spawn npx ENOENT`、`MCP process closed` 或类似启动失败提示，通常表示本机没有可用的 Node.js 环境，或者 `npx` 不在 PATH 中。先安装 Node.js，再重新打开 Obsidian。
 
-如果笔记 frontmatter 中提供了 `title` 和 `cover`：
+如果笔记 frontmatter 中提供了 `formatter.title` 和 `formatter.cover`：
 
 - 预览页会优先使用它们作为头图标题和封面
-- 浏览器上传草稿时会优先填写 `title`
-- `cover` 会在上传流程最后添加，方便你在网页里手动调整封面裁切区域
+- 浏览器上传草稿时会优先填写 `formatter.title`
+- `formatter.cover` 会在上传流程最后添加，方便你在网页里手动调整封面裁切区域
+- `formatter.title` 和 `formatter.cover` 可通过预览窗口的 **添加 formatter** 按钮自动创建；插件只补缺失字段，不会覆盖你已经填写的内容
+- 为兼容旧笔记，顶层 `title` 和 `cover` 仍可继续使用
 
 ## 发布开发
 
@@ -183,8 +187,9 @@ git push --tags
 
 ```md
 ---
-title: 我的 X 长文标题
-cover: ![[cover.png]]
+formatter:
+  title: 我的 X 长文标题
+  cover: ![[cover.png]]
 ---
 ```
 

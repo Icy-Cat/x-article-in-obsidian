@@ -117,8 +117,8 @@ async function buildPublishPayload(
 	const markdown = buildPreviewMarkdown(file, rawMarkdown, plugin.settings);
 	const extraction = await extractPublishItems(plugin, file, markdown);
 	const html = await renderMarkdownToHtml(plugin, file, extraction.processedMarkdown);
-	const title = getFrontmatterString(plugin, file, ["title", "Title"]);
-	const coverTarget = getFrontmatterString(plugin, file, ["cover", "Cover"]);
+	const title = getArticleFrontmatterString(plugin, file, ["title", "Title"]);
+	const coverTarget = getArticleFrontmatterString(plugin, file, ["cover", "Cover"]);
 	const cover = coverTarget
 		? await resolveImageAsset(plugin, file, normalizeFrontmatterImageTarget(coverTarget), "")
 		: null;
@@ -183,6 +183,41 @@ function getFrontmatterString(
 
 	for (const key of keys) {
 		const value = frontmatter[key];
+		if (typeof value === "string" && value.trim().length > 0) {
+			return value.trim();
+		}
+	}
+
+	return null;
+}
+
+function getArticleFrontmatterString(
+	plugin: XArticleInObsidianPlugin,
+	file: TFile,
+	keys: string[],
+): string | null {
+	const frontmatter = plugin.app.metadataCache.getFileCache(file)?.frontmatter as
+		| Record<string, unknown>
+		| undefined;
+	const formatter = frontmatter?.formatter;
+
+	if (isFrontmatterObject(formatter)) {
+		const formatterValue = getStringFromRecord(formatter, keys);
+		if (formatterValue) {
+			return formatterValue;
+		}
+	}
+
+	return getFrontmatterString(plugin, file, keys);
+}
+
+function isFrontmatterObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getStringFromRecord(record: Record<string, unknown>, keys: string[]): string | null {
+	for (const key of keys) {
+		const value = record[key];
 		if (typeof value === "string" && value.trim().length > 0) {
 			return value.trim();
 		}

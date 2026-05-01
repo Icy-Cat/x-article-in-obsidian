@@ -13,6 +13,7 @@ export type TranslationKey =
 	| "view.publish"
 	| "view.publishing"
 	| "view.refresh"
+	| "view.addFormatter"
 	| "view.empty.title"
 	| "view.empty.summary"
 	| "view.empty.body"
@@ -60,6 +61,9 @@ export type TranslationKey =
 	| "notice.copyScriptSuccess"
 	| "error.buildPublishScriptFailed"
 	| "error.openMarkdownFirst"
+	| "notice.formatterAdded"
+	| "notice.formatterExists"
+	| "notice.formatterFailed"
 	| "notice.publishDesktopOnly"
 	| "notice.noBrowserBridge"
 	| "notice.nodeRequiredForPublish"
@@ -105,6 +109,7 @@ const translations: Translations = {
 		"view.publish": "Upload to draft",
 		"view.publishing": "Uploading...",
 		"view.refresh": "Refresh",
+		"view.addFormatter": "Add formatter",
 		"view.empty.title": "No note selected",
 		"view.empty.summary": "Open a Markdown note to preview it in the X article layout.",
 		"view.empty.body": "Open a Markdown note to preview it as an X article.",
@@ -155,6 +160,9 @@ const translations: Translations = {
 		"notice.copyScriptSuccess": "Copied the X draft upload script to the clipboard.",
 		"error.buildPublishScriptFailed": "Failed to build the draft upload script.",
 		"error.openMarkdownFirst": "Open a Markdown note first.",
+		"notice.formatterAdded": "Added formatter.title and formatter.cover to the note frontmatter.",
+		"notice.formatterExists": "This note already has formatter.title and formatter.cover.",
+		"notice.formatterFailed": "Failed to add formatter fields to the note.",
 		"notice.publishDesktopOnly": "Browser draft upload is available on desktop only.",
 		"notice.noBrowserBridge": "No browser bridge was detected. Configure Playwright MCP first.",
 		"notice.nodeRequiredForPublish":
@@ -199,6 +207,7 @@ const translations: Translations = {
 		"view.publish": "上传到草稿箱",
 		"view.publishing": "上传中...",
 		"view.refresh": "刷新",
+		"view.addFormatter": "添加 formatter",
 		"view.empty.title": "未选择笔记",
 		"view.empty.summary": "打开一篇 Markdown 笔记后，这里会按 X Article 的样式实时预览。",
 		"view.empty.body": "请先打开一篇 Markdown 笔记，再在这里预览为 X Article。",
@@ -247,6 +256,9 @@ const translations: Translations = {
 		"notice.copyScriptSuccess": "已将 X 草稿上传脚本复制到剪贴板。",
 		"error.buildPublishScriptFailed": "生成草稿上传脚本失败。",
 		"error.openMarkdownFirst": "请先打开一篇 Markdown 笔记。",
+		"notice.formatterAdded": "已在笔记 frontmatter 中添加 formatter.title 和 formatter.cover 字段。",
+		"notice.formatterExists": "当前笔记已经有 formatter.title 和 formatter.cover 字段。",
+		"notice.formatterFailed": "添加 formatter 字段失败。",
 		"notice.publishDesktopOnly": "浏览器上传草稿功能仅支持桌面端。",
 		"notice.noBrowserBridge": "未检测到浏览器桥接，请先配置 Playwright MCP。",
 		"notice.nodeRequiredForPublish":
