@@ -212,7 +212,11 @@ function detectPlaywrightToken(
 	const os = req("node:os") as typeof import("node:os");
 	const processRef = req("node:process") as typeof import("node:process");
 
-	const savedToken = plugin.settings.playwrightToken.trim();
+	const savedTokenRaw = plugin.settings.playwrightToken.trim();
+	const tokenEnvPrefix = `${PLAYWRIGHT_TOKEN_ENV}=`;
+	const savedToken = savedTokenRaw.startsWith(tokenEnvPrefix)
+		? savedTokenRaw.slice(tokenEnvPrefix.length)
+		: savedTokenRaw;
 	if (!options?.ignoreSavedToken && savedToken) {
 		return { token: savedToken, source: "plugin settings" };
 	}
@@ -271,9 +275,14 @@ function readMcpConfig(configPath: string): ParsedMcpConfig | null {
 			if (!server.command) {
 				continue;
 			}
+			const parts = server.command.split(/\s+/);
+			const [command, ...embeddedArgs] = parts;
+			if (!command) {
+				continue;
+			}
 			servers[name] = {
-				command: server.command,
-				args: server.args ?? [],
+				command,
+				args: [...embeddedArgs, ...(server.args ?? [])],
 				env: normalizeEnv(server.env),
 			};
 		}
@@ -308,7 +317,8 @@ function normalizeEnv(env: Record<string, string> | undefined): Record<string, s
 	const normalized: Record<string, string> = {};
 	for (const [key, value] of Object.entries(env ?? {})) {
 		if (typeof value === "string" && value.length > 0) {
-			normalized[key] = value;
+			const prefix = `${key}=`;
+			normalized[key] = value.startsWith(prefix) ? value.slice(prefix.length) : value;
 		}
 	}
 	return normalized;

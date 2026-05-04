@@ -91,7 +91,11 @@ export class XArticleSettingTab extends PluginSettingTab {
 					.setPlaceholder(this.plugin.t("settings.playwrightToken.placeholder"))
 					.setValue(this.plugin.settings.playwrightToken)
 					.onChange((value) => {
-						this.plugin.settings.playwrightToken = value.trim();
+						const trimmed = value.trim();
+						const tokenPrefix = "PLAYWRIGHT_MCP_EXTENSION_TOKEN=";
+						this.plugin.settings.playwrightToken = trimmed.startsWith(tokenPrefix)
+							? trimmed.slice(tokenPrefix.length)
+							: trimmed;
 						void this.plugin.saveSettings();
 					}),
 			)
