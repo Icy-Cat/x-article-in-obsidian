@@ -192,12 +192,12 @@ async function detectPlaywrightRuntime(plugin: XArticleInObsidianPlugin): Promis
 	return (
 		findPlaywrightRuntime(parsedConfigs, extensionToken) ??
 		(extensionToken
-			? {
+			? normalizeRuntimeConfig({
 					command: "npx",
 					args: ["-y", "@playwright/mcp@latest", "--extension"],
 					env: { [PLAYWRIGHT_TOKEN_ENV]: extensionToken },
 					source: "auto-detected token",
-				}
+				})
 			: null)
 	);
 }
@@ -813,10 +813,15 @@ function discoverPlaywrightExtensionToken(
 	const bufferModule = req("node:buffer") as typeof import("node:buffer");
 	const home = os.homedir();
 	const appData = processRef.env.LOCALAPPDATA || path.join(home, "AppData", "Local");
-	const bases = [
-		path.join(appData, "Google", "Chrome", "User Data"),
-		path.join(appData, "Microsoft", "Edge", "User Data"),
-	];
+	const bases: string[] = processRef.platform === "darwin"
+		? [
+			path.join(home, "Library", "Application Support", "Google", "Chrome"),
+			path.join(home, "Library", "Application Support", "Microsoft Edge"),
+		]
+		: [
+			path.join(appData, "Google", "Chrome", "User Data"),
+			path.join(appData, "Microsoft", "Edge", "User Data"),
+		];
 	const profiles = ["Default", "Profile 1", "Profile 2", "Profile 3"];
 	const tokenRe = /([A-Za-z0-9_-]{40,50})/;
 	const extIdBuf = bufferModule.Buffer.from(PLAYWRIGHT_EXTENSION_ID);
